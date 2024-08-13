@@ -1,0 +1,110 @@
+# version: '3.8'
+# services:
+#   backend_colmed_coy:
+#     build: .
+#     command: python manage.py runserver 0.0.0.0:8000
+#     volumes:
+#       - .:/app
+#     ports:
+#       - "8000:8000"
+#     environment:
+#       - DB_NAME=${DB_NAME}
+#       - DB_USER=${DB_USER}
+#       - DB_PASSWORD=${DB_PASSWORD}
+#       - DB_HOST=${DB_HOST}
+#       - DB_PORT=${DB_PORT}
+#     depends_on:
+#       - db_colmed_coy
+#     env_file:
+#       - .env
+
+#   db_colmed_coy:
+#     image: postgres:14
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     env_file:
+#       - .env
+#     environment:
+#       POSTGRES_DB: ${DB_NAME}
+#       POSTGRES_USER: ${DB_USER}
+#       POSTGRES_PASSWORD: ${DB_PASSWORD}
+#     # ports:
+#     #   - "5432:5432" # opcional, solo si se necesita acceder a la base de datos desde fuera de Docker
+
+# volumes:
+#   postgres_data:
+
+
+#Intento 3
+# version: '3.8'
+# services:
+#   db:
+#     image: postgres:13
+#     environment:
+#       POSTGRES_DB: ${DB_NAME}
+#       POSTGRES_USER: ${DB_USER}
+#       POSTGRES_PASSWORD: ${DB_PASSWORD}
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+
+#   backend_colmed_coy:
+#     build: .
+#     # command: ["sh", "-c", "/app/entrypoint.sh"]
+#     volumes:
+#       - .:/app
+#     ports:
+#       - "8001:8000"
+#     environment:
+#       - DB_NAME=${DB_NAME}
+#       - DB_USER=${DB_USER}
+#       - DB_PASSWORD=${DB_PASSWORD}
+#       - DB_HOST=db
+#       - DB_PORT=${DB_PORT}
+#     env_file:
+#       - .env
+#     depends_on:
+#       - db
+
+# volumes:
+#   postgres_data:
+
+
+version: '3.8'
+services:
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend_colmed_coy:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "8001:8000"
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=${DB_PORT}
+    env_file:
+      - .env
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+
+
+
+
+
+
+
+
+

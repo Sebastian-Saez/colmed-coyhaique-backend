@@ -22,3 +22,4 @@ dist/
 .vscode/
 *.log
 docker-compose.override.yml
+*.png

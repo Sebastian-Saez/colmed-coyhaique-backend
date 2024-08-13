@@ -27,9 +27,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG') == 'True'  # Convertir el string "True" a booleano
-print("os.getenv('ALLOWED_HOSTS')", os.getenv('ALLOWED_HOSTS'))
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')  # Convertir el string a lista
-print("\n\nALLOWED_HOSTS", ALLOWED_HOSTS)
 
 # Application definition
 
@@ -41,9 +39,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
+    'django_extensions',
     'base_colmed',
     'base_medicos',
-    # 'base_noticias',
+    'base_noticias',
 ]
 
 MIDDLEWARE = [
@@ -91,8 +90,6 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT'),
     }
 }
-
-print("\n\nDATABASESq??", DATABASES)
 
 
 # Password validation

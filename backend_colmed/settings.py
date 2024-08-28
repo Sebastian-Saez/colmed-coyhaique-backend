@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'django_extensions',
+    'rest_framework',
     'base_colmed',
     'base_medicos',
     'base_noticias',

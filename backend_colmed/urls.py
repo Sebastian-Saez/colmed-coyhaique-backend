@@ -21,4 +21,5 @@ urlpatterns = [
     path('api/colmed/', include('base_colmed.urls')),
     path('api/medicos/', include('base_medicos.urls')),
     path('api/noticias/', include('base_noticias.urls')),
+    # path('accounts/', include('allauth.urls')),
 ]

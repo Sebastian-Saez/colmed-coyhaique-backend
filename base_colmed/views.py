@@ -30,8 +30,6 @@ class PerfilViewSet(viewsets.ModelViewSet):
     
 @login_required
 def user_profile(request):
-    print("Request user: ", request.user)
-    print("Request: ", request)
     perfil = Perfil.objects.get(user=request.user)
     return JsonResponse({
         'usuario': request.user.username,
@@ -42,7 +40,6 @@ def user_profile(request):
 
 class LoginView(APIView):
     def post(self, request):
-        print("Request data - LoginView: ", request.data)
         email = request.data.get('email')
         password = request.data.get('password')
 

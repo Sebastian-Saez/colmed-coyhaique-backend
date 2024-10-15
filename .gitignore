@@ -23,3 +23,24 @@ dist/
 *.log
 docker-compose.override.yml
 *.png
+
+#archivos de pruebas en local
+24.2
+entry
+entrypoint copy 2.sh
+entrypoint copy.sh
+
+
+#Comandos de uso local
+base_colmed/management/commands/carga_data_colmed.py
+base_colmed/management/commands/carga_datos.py
+base_colmed/management/commands/scrape_rut.py
+base_colmed/management/commands/unificar_data.py
+base_colmed/management/commands/unificar_data_final.py
+
+#Archivos para la creación de la data base
+data/
+*.csv
+colmed_aysen_unificado_actualizado.xlsx
+medicos_aysen.xlsx
+medicos_aysen2.xlsx

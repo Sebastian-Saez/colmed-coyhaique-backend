@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Perfil, Beneficio, Plaza, Evento
+from .models import Perfil, Beneficio, Plaza, Evento, Estamento, Entidad, LugarDescuento
 
 @admin.register(Perfil)
 class PerfilAdmin(admin.ModelAdmin):
@@ -16,4 +16,14 @@ class PlazaAdmin(admin.ModelAdmin):
 @admin.register(Evento)
 class EventoAdmin(admin.ModelAdmin):
     list_display = ('titulo','descripcion','fecha_inicio','fecha_fin','id_evento_google','autor')
+
+@admin.register(Entidad)
+class EntidadAdmin(admin.ModelAdmin):
+    list_display = ('nombre_entidad','sigla')
+
+@admin.register(Estamento)
+class EstamentoAdmin(admin.ModelAdmin):
+    list_display = ('nombre_estamento','descripcion_estamento','codigo_estamento')
+
+
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Beneficio, Plaza, Evento, Perfil
+from .models import Beneficio, Plaza, Evento, Perfil, Entidad, Estamento, LugarDescuento
 from django.contrib.auth.models import User
 
 class UserSerializer(serializers.ModelSerializer):
@@ -22,6 +22,21 @@ class BeneficioSerializer(serializers.ModelSerializer):
 class PlazaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Plaza
+        fields = '__all__'
+
+class EstamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Estamento
+        fields = '__all__'
+
+class LugarDescuentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LugarDescuento
+        fields = '__all__'
+
+class EntidadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Entidad
         fields = '__all__'
 
 class EventoSerializer(serializers.ModelSerializer):

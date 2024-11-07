@@ -1,9 +1,11 @@
 from rest_framework import viewsets
 from django.contrib.auth import logout
 from rest_framework.views import APIView
+from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from .models import Beneficio, Plaza, Evento, Perfil
@@ -15,6 +17,14 @@ class BeneficioViewSet(viewsets.ModelViewSet):
     queryset = Beneficio.objects.all()
     serializer_class = BeneficioSerializer
 
+    @action(detail=False, methods=['get'])
+    def todos_beneficios(self, request):
+        """Endpoint para obtener todos los beneficios activos."""
+        fecha_actual = timezone.now().date()
+        beneficios_activos = Beneficio.objects.filter(fecha_baja__isnull=True) | Beneficio.objects.filter(fecha_baja__gte=fecha_actual)
+        serializer = self.get_serializer(beneficios_activos, many=True)
+        return Response(serializer.data)
+    
 class PlazaViewSet(viewsets.ModelViewSet):
     queryset = Plaza.objects.all()
     serializer_class = PlazaSerializer

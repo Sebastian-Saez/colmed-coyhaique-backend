@@ -7,7 +7,7 @@ class PerfilAdmin(admin.ModelAdmin):
 
 @admin.register(Beneficio)
 class BeneficioAdmin(admin.ModelAdmin):
-    list_display = ('descripcion', 'fecha_alta', 'fecha_baja', 'fecha_modificacion','usuario_modificacion')
+    list_display = ('titulo','descripcion', 'fecha_alta', 'fecha_baja', 'fecha_modificacion','usuario_modificacion')
 
 @admin.register(Plaza)
 class PlazaAdmin(admin.ModelAdmin):

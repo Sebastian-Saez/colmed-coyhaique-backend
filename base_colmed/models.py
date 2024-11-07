@@ -27,30 +27,16 @@ class Perfil(models.Model):
     def __str__(self):
         return self.user.username
 
-# class Colegiatura(models.Model):
-#     medico = models.OneToOneField(Medico, on_delete=models.CASCADE)  # Relación uno a uno con el modelo Médico
-#     lugar_descuento = models.CharField(max_length=255, blank=True, null=True)  # Lugar de descuento por estar colegiado
-#     tipo_cuota = models.CharField(max_length=50, choices=TIPOS_CUOTAS, default='no_informado')  # Tipo de cuota
-#     fecha_inscripcion_col = models.DateField(null=True, blank=True)  # Fecha de inscripción a la colegiatura
-#     fecha_actualizacion = models.DateTimeField(auto_now=True)  # Fecha de actualización automática
-
-#     def __str__(self):
-#         return f'Colegiatura de {self.medico.user.get_full_name() if self.medico.user else self.medico.rut}'
-
-#     class Meta:
-#         verbose_name = "Colegiatura"
-#         verbose_name_plural = "Colegiaturas"
-
-
 class Beneficio(models.Model):
-    descripcion = models.CharField(max_length=255)
+    titulo = models.CharField(max_length=255, null=True, blank=True, default="")
+    descripcion = models.TextField(blank=True, null=True)
     fecha_alta = models.DateField(null=True, blank=True)
     fecha_baja = models.DateField(null=True, blank=True)
     fecha_modificacion = models.DateTimeField(auto_now=True)
     usuario_modificacion = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="beneficios_modificados")
 
     def __str__(self):
-        return self.descripcion
+        return self.titulo
 
 class Plaza(models.Model):
     codigo = models.BigIntegerField(unique=True, blank=True, null=True)
@@ -68,7 +54,7 @@ class Evento(models.Model):
     fecha_fin = models.DateTimeField()
     id_evento_google = models.CharField(max_length=255)
     autor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="eventos_creados")
-    
+    imagen = models.ImageField(upload_to='eventos/', null=True, blank=True)
 
     def __str__(self):
         return self.titulo

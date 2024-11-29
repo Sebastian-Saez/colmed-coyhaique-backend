@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework.response import Response
-from .models import Medico, Cuota, Afiliacion, TIPOS_ESTADO_PAGO
+from .models import Medico, Cuota, Afiliacion, TIPOS_ESTADO_PAGO, TIPOS_DIRECTIVA
 from .serializers import MedicoSerializer, CuotaSerializer, AfiliacionSerializer
 from django.db.models import Q
 from .utils import convertir_fecha
@@ -10,6 +10,28 @@ from .utils import convertir_fecha
 class MedicoViewSet(viewsets.ModelViewSet):
     queryset = Medico.objects.all()
     serializer_class = MedicoSerializer
+
+    @action(detail=False, methods=['get'], url_path='directiva')
+    def obtener_directiva(self, request):
+        """
+        Endpoint para obtener la lista de médicos que son parte de la directiva.
+        Los resultados están ordenados en el siguiente orden: 
+        Presidente, Vicepresidente, Secretario, Tesorero, Consejero.
+        """
+        # Definir el orden de la directiva según los choices definidos en el modelo (omitimos el valor vacío)
+        orden_directiva = [directiva[0] for directiva in TIPOS_DIRECTIVA if directiva[0] != '']
+        
+        # Crear una lista vacía para almacenar los médicos en el orden de la jerarquía
+        medicos_directiva_list = []
+
+        # Construir la lista de médicos en el orden especificado
+        for cargo in orden_directiva:
+            medicos_cargo = Medico.objects.filter(directiva=cargo).order_by('user__first_name')
+            medicos_directiva_list.extend(medicos_cargo)
+
+        # Serializar los resultados
+        serializer = self.get_serializer(medicos_directiva_list, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='filtro_data_medicos')
     def filtro_data_medicos(self, request):

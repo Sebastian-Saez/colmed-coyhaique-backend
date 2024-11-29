@@ -20,12 +20,12 @@ TIPOS_CUOTAS  = [
 ]
 
 class Perfil(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="perfiles")
     tipo_perfil = models.CharField(max_length=50, choices=TIPOS_PERFILES, default='visitante')
     activo = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.user.username
+        return f"{self.tipo_perfil} ({self.user.username})"
 
 class Beneficio(models.Model):
     titulo = models.CharField(max_length=255, null=True, blank=True, default="")

@@ -3,7 +3,7 @@ from .models import Perfil, Beneficio, Plaza, Evento, Estamento, Entidad, LugarD
 
 @admin.register(Perfil)
 class PerfilAdmin(admin.ModelAdmin):
-    list_display = ('tipo_perfil', 'activo')
+    list_display = ('user','tipo_perfil', 'activo')
 
 @admin.register(Beneficio)
 class BeneficioAdmin(admin.ModelAdmin):

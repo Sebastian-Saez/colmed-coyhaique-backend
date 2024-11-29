@@ -16,6 +16,20 @@ TIPOS_ESTADO_PAGO  = [
     ('no_aplica', 'No aplica')
 ]
 
+TIPOS_DIRECTIVA = [
+    ('presidente', 'Presidente'),
+    ('presidenta', 'Presidenta'),
+    ('vicepresidente', 'VicePresidente'),
+    ('vicepresidenta', 'VicePresidenta'),
+    ('secretaria', 'Secretaria'),
+    ('secretario', 'Secretario'),
+    ('tesorera', 'Tesorera'),
+    ('tesorero', 'Tesorero'),
+    ('consejero', 'Consejero'),
+    ('consejera', 'Consejera'),
+    ('', '------')
+]
+
 TIPOS_ESTADO_AFILIACION  = [
     ('afiliado', 'AFILIADO'),
     ('afiliado_pendiente', 'AFILIADO PENDIENTE'),
@@ -48,7 +62,7 @@ class Medico(models.Model):
     #condicion_colmed = models.CharField(max_length=50, choices=TIPOS_ESTADO_AFILIACION, default='no_colegiado')
     #cuotas_totales = models.BigIntegerField(null=True, blank=True)
     registro_superintendencia = models.BigIntegerField(null=True, blank=True)  # Ahora permite nulos y vacíos    
-    directiva = models.CharField(max_length=255, null=True, blank=True)        
+    directiva = models.CharField(max_length=255, null=True, blank=True, choices=TIPOS_DIRECTIVA, default='')        
     plaza = models.ForeignKey(Plaza, null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):

@@ -17,11 +17,18 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from base_colmed.views import GoogleLogin, LogoutView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/colmed/', include('base_colmed.urls')),
     path('api/medicos/', include('base_medicos.urls')),
     path('api/noticias/', include('base_noticias.urls')),
-    # path('accounts/', include('allauth.urls')),
+    
+
+    path('api/auth/google/', GoogleLogin.as_view(), name='google_login'),
+    path('api/auth/logout/', LogoutView.as_view(), name='logout'),
+    path('accounts/', include('allauth.urls')),
+    path('api/auth/', include('dj_rest_auth.urls')),
+    path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

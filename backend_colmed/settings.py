@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -44,12 +45,15 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_extensions',
     'django.contrib.sites',
-    # 'allauth',
-    # 'allauth.account',
-    # 'allauth.socialaccount',
-    # 'allauth.socialaccount.providers.google',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework.authtoken',
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
     'base_colmed',
     'base_medicos',
     'base_noticias',
@@ -64,7 +68,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'allauth.account.middleware.AccountMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'backend_colmed.urls'
@@ -154,6 +158,13 @@ MEDIA_ROOT = '/app/media/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS').split(',')
+
+GOOGLE_SERVICE_ACCOUNT_JSON = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
+GOOGLE_CLIENT_ID  = os.getenv('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
+GOOGLE_DRIVE_SUPER = os.getenv('GOOGLE_DRIVE_SUPER')
+GOOGLE_DRIVE_SR = os.getenv('GOOGLE_DRIVE_SR')
+
 # Configuración para el proveedor de OAuth2 (Google)
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
@@ -165,8 +176,10 @@ SOCIALACCOUNT_PROVIDERS = {
             'access_type': 'online',
         },
         'APP': {
-            'client_id': '91303446069-qajan20fs571iq3kkabn03n66d7el55f.apps.googleusercontent.com',
-            'secret': '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',
+            
+            'client_id': GOOGLE_CLIENT_ID,
+            
+            'secret': GOOGLE_CLIENT_SECRET,
             'key': ''
         }
     }
@@ -174,7 +187,7 @@ SOCIALACCOUNT_PROVIDERS = {
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
-    # 'allauth.accounts.auth_backends.AuthenticationBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
 )
 
 LOGIN_REDIRECT_URL = '/'
@@ -184,6 +197,15 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    # 'DEFAULT_AUTHENTICATION_CLASSES': [
+    #     'rest_framework.authentication.SessionAuthentication',
+    #     # 'rest_framework.authentication.TokenAuthentication',
+    # ],
+}
+
+REST_USE_JWT = True
+DJ_REST_AUTH = {
+    'TOKEN_MODEL': None,
 }
 
 SIMPLE_JWT = {
@@ -197,3 +219,7 @@ SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT') == 'True'
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS').split(',')
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+
+ALLOWED_HOSTS.append('10.0.2.2')
+CORS_ALLOWED_ORIGINS.append('http://10.0.2.2:8001')

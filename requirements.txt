@@ -59,3 +59,11 @@ webdriver-manager==4.0.2
 websocket-client==1.8.0
 wsproto==1.2.0
 gunicorn
+google-api-python-client
+google-auth
+dj-rest-auth
+cryptography
+requests-oauthlib
+google-auth-httplib2
+google-auth-oauthlib
+pdfplumber

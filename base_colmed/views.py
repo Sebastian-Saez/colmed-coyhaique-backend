@@ -13,6 +13,12 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from .serializers import BeneficioSerializer, PlazaSerializer, EventoSerializer, PerfilSerializer
 from django.utils.translation import gettext_lazy as _
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from dj_rest_auth.serializers import JWTSerializer
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from google.auth.transport import requests
+from google.oauth2 import id_token
+from backend_colmed.settings import GOOGLE_CLIENT_ID
 
 class BeneficioViewSet(viewsets.ModelViewSet):
     queryset = Beneficio.objects.all()
@@ -145,3 +151,114 @@ class UpdatePasswordView(APIView):
             }
         }, status=status.HTTP_200_OK)
 
+# class GoogleLogin(SocialLoginView):
+#     adapter_class = GoogleOAuth2Adapter
+#     client_class = OAuth2Client
+#     serializer_class = JWTSerializer  # asume que estás usando JWT
+
+#     def post(self, request, *args, **kwargs):
+#         # Llama a la implementación base
+#         print("Request??? ", request,"\n")
+#         response = super().post(request, *args, **kwargs)
+#         print("Response??? : ", response,"\n")
+#         user = request.user
+#         if not user or not user.is_authenticated:
+#             # Si por alguna razón no se autenticó el usuario
+#             return Response({"detail": "User not authorized."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+#         # Aquí el usuario está autenticado, es decir existe en tu BD.
+#         # Obtenemos los perfiles asociados
+#         profiles = Perfil.objects.filter(user=user)
+#         profiles_data = PerfilSerializer(profiles, many=True).data
+        
+#         # response.data debería contener tokens de acceso (y refresh) generados por dj_rest_auth
+#         # Vamos a modificar la respuesta para agregar la info del usuario y sus perfiles
+#         new_data = dict(response.data)  # copia de los datos originales
+#         new_data['user'] = {
+#             'username': user.username,
+#             'email': user.email,
+#             'perfiles': profiles_data
+#         }
+        
+#         # Actualizar la data de la respuesta
+#         response.data = new_data
+#         return response
+
+class GoogleLogin(APIView):
+    """
+    Recibe un id_token (credential) de Google, valida el token,
+    verifica existencia del usuario en BD, genera tokens JWT propios.
+    """
+    def post(self, request):
+        id_token_google = request.data.get('id_token')
+        if not id_token_google:
+            return Response({"detail": "id_token is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # idinfo = id_token.verify_oauth2_token(id_token_google, requests.Request(), GOOGLE_CLIENT_ID)
+        
+        # Validar el id_token con Google
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                id_token_google,
+                requests.Request(),
+                GOOGLE_CLIENT_ID,
+                clock_skew_in_seconds=300  # tolerancia de 5 minutos
+            )
+            
+            # Si la validación es exitosa, idinfo contendrá el email del usuario.
+            email = idinfo.get('email')
+            if not email:
+                return Response({"detail": "Invalid token: no email found."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if idinfo['aud'] != GOOGLE_CLIENT_ID:
+                return Response({"detail": "Invalid audience."}, status=status.HTTP_401_UNAUTHORIZED)
+            name_google = idinfo.get('name')
+            picture_google = idinfo.get('picture')
+        except ValueError:
+            # Token inválido
+            return Response({"detail": "Invalid id_token."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Verificar si el usuario existe en la BD
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"detail": "User not authorized."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Obtener perfiles del usuario
+        perfiles = Perfil.objects.filter(user=user)
+        perfiles_data = PerfilSerializer(perfiles, many=True).data
+
+        # Generar tokens JWT
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        return Response({
+            "access": access_token,
+            "refresh": refresh_token,
+            "user": {
+                "username": user.username,
+                "email": user.email,
+                "perfiles": perfiles_data,
+                "name_google" : name_google,
+                "picture": picture_google
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class LogoutView(APIView):
+    """
+    Endpoint para cerrar sesión.
+    Elimina el token JWT de acceso en el frontend y revoca el refresh token en el backend.
+    """
+
+    def post(self, request):
+        try:
+            refresh_token = request.data.get("refresh_token")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()  # Revoca el refresh token
+
+            return Response({"detail": "Logout successful"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"detail": "Error during logout"}, status=status.HTTP_400_BAD_REQUEST)

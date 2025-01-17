@@ -46,6 +46,40 @@ TIPOS_ESTADO_AFILIACION  = [
     ('reinscrito', 'REINSCRITO'),
     ('no_aplica', 'No aplica')
 ]
+
+#Registro Superintendencia
+class Institucion (models.Model):
+    nombre = models.CharField(max_length=255)
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+
+class OrdenProfesional (models.Model):
+    nombre = models.CharField(max_length=255)
+    descripcion = models.TextField(null=True, blank=True)
+    fecha_certificacion = models.DateField()
+    institucion_certificadora = models.ForeignKey('Institucion',related_name='universidad', blank=True, null=True, on_delete=models.SET_NULL)
+
+
+class Especialidad(models.Model):
+    nombre = models.CharField(max_length=255)
+    descripcion = models.TextField(null=True, blank=True)
+    fecha_certificacion = models.DateField()
+    institucion_certificadora = models.ForeignKey('Institucion',related_name='institucion', blank=True, null=True, on_delete=models.SET_NULL)
+
+    def __str__(self):
+        return self.nombre
+
+class RegistroSuperintendencia(models.Model):
+    numero_registro = models.CharField(max_length=20, unique=True)
+    fecha_registro = models.DateField()
+    fecha_nacimiento = models.DateField(null=True, blank=True)
+    nacionalidad = models.CharField(max_length=20, default="")
+    ordenes_profesionales = models.ManyToManyField('OrdenProfesional', related_name='ordenes_profesionales')
+    especialidades = models.ManyToManyField('Especialidad', related_name='especialidades')
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.numero_registro
+
 class Medico(models.Model):
     user = models.OneToOneField(User, null=True, blank=True, on_delete=models.SET_NULL)
     rut = models.CharField(max_length=255, unique=True, null=True, blank=True)  # Ahora permite nulos y vacíos
@@ -61,7 +95,7 @@ class Medico(models.Model):
     #moroso = models.CharField(max_length=50, choices=TIPOS_ESTADO_PAGO, default='no_informado')
     #condicion_colmed = models.CharField(max_length=50, choices=TIPOS_ESTADO_AFILIACION, default='no_colegiado')
     #cuotas_totales = models.BigIntegerField(null=True, blank=True)
-    registro_superintendencia = models.BigIntegerField(null=True, blank=True)  # Ahora permite nulos y vacíos    
+    registro_superintendencia = models.ForeignKey('RegistroSuperintendencia', related_name='registro_superintendencia',null=True, blank=True, on_delete=models.SET_NULL)
     directiva = models.CharField(max_length=255, null=True, blank=True, choices=TIPOS_DIRECTIVA, default='')        
     plaza = models.ForeignKey(Plaza, null=True, blank=True, on_delete=models.SET_NULL)
 
@@ -93,3 +127,4 @@ class Cuota(models.Model):
     def __str__(self):
         return f'Cuota {self.monto} - {self.fecha}'
     
+

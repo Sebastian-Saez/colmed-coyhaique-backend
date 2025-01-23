@@ -9,6 +9,8 @@ TIPOS_PERFILES  = [
     ('admin_noticias', 'Administrador Noticias'),
     ('admin_colmed', 'Administrador Colmed'),
     ('gestor_informatico', 'Gestor Informático'),
+    ('admin_eventos', 'Administrador de Eventos'),
+    ('admin_sitio', 'Administrador del Sitio'),
 ]
 
 TIPOS_CUOTAS  = [

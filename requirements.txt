@@ -67,3 +67,5 @@ requests-oauthlib
 google-auth-httplib2
 google-auth-oauthlib
 pdfplumber
+redis
+django-celery-beat

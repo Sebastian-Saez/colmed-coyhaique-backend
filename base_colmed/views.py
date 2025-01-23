@@ -40,6 +40,13 @@ class EventoViewSet(viewsets.ModelViewSet):
     queryset = Evento.objects.all()
     serializer_class = EventoSerializer
 
+    @action(detail=False, methods=['get'])
+    def eventos_base(self, request):
+        """Endpoint para obtener todas las noticias activas que no sean destacadas."""
+        eventos = Evento.objects.all().order_by('-fecha_inicio')
+        serializer = self.get_serializer(eventos, many=True)
+        return Response(serializer.data)
+    
 class PerfilViewSet(viewsets.ModelViewSet):
     queryset = Perfil.objects.all()
     serializer_class = PerfilSerializer

@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 from base_colmed.serializers import UserSerializer
 
 class NoticiaSerializer(serializers.ModelSerializer):
-    autor = UserSerializer(read_only=True)
+    # autor = UserSerializer(read_only=True)
+    autor = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
 
     class Meta:
         model = Noticia

@@ -3,15 +3,18 @@ from django.contrib.auth import logout
 from rest_framework.views import APIView
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
+import json
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
-from .models import Beneficio, Plaza, Evento, Perfil
+from .models import Beneficio, Plaza, Evento, Perfil, PublicidadMedica
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .serializers import BeneficioSerializer, PlazaSerializer, EventoSerializer, PerfilSerializer
+from .serializers import BeneficioSerializer, PlazaSerializer, EventoSerializer, PerfilSerializer, PublicidadMedicaSerializer
 from django.utils.translation import gettext_lazy as _
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from dj_rest_auth.serializers import JWTSerializer
@@ -19,6 +22,9 @@ from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from backend_colmed.settings import GOOGLE_CLIENT_ID
+from base_colmed.authentication import CookieJWTAuthentication
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 
 class BeneficioViewSet(viewsets.ModelViewSet):
     queryset = Beneficio.objects.all()
@@ -42,11 +48,141 @@ class EventoViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def eventos_base(self, request):
-        """Endpoint para obtener todas las noticias activas que no sean destacadas."""
+        """Endpoint para obtener todos los eventos."""
         eventos = Evento.objects.all().order_by('-fecha_inicio')
         serializer = self.get_serializer(eventos, many=True)
         return Response(serializer.data)
     
+class PublicidadMedicaViewSet(viewsets.ModelViewSet):
+    queryset = PublicidadMedica.objects.all()
+    serializer_class = PublicidadMedicaSerializer
+
+    @action(detail=False, methods=['get'])
+    def publicidades_base(self, request):
+        """Endpoint para obtener todas las publicidades medicas activas."""
+        publicidades = PublicidadMedica.objects.filter(activo=True).order_by('-fecha_modificacion')
+        serializer = self.get_serializer(publicidades, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def todas_publicidades(self, request):
+        """Endpoint para obtener todas las publicidades medicas."""
+        publicidades = PublicidadMedica.objects.all().order_by('-fecha_modificacion')
+        serializer = self.get_serializer(publicidades, many=True)
+        return Response(serializer.data)
+    
+@method_decorator(csrf_exempt, name='dispatch')
+class EventoCreateUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
+
+    def post(self, request):
+        """
+        Endpoint para crear o actualizar un evento.
+        Si el autor está presente en el request, se actualiza el evento existente.
+        Si el autor no está presente, se crea un nuevo evento.
+        """
+        data = request.data.copy()
+        autor_id = data.get('autor')
+        
+        try:
+            autor = User.objects.get(id=autor_id) if autor_id else request.user
+        except User.DoesNotExist:
+            return Response({"detail": "Autor no válido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # # Convertir valores booleanos desde cadenas "true" y "false"
+        # if 'destacada' in data:
+        #     data['destacada'] = data.get('destacada') == 'true'
+        # if 'activo' in data:
+        #     data['activo'] = data.get('activo') == 'true'
+
+        # Validar el campo link si existe y tiene un formato adecuado
+        # if data.get('link') != "null":
+            
+        #     try:
+        #         data['link'] = json.dumps({"link": data.get('link')})
+        #     except ValueError:
+        #         return Response({"detail": "El campo 'link' debe ser un objeto JSON válido con el formato {'link': url}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if data.get('id'):
+            # Actualizar la noticia existente
+            try:
+                evento = Evento.objects.get(id=data.get('id'))
+                data['autor'] = int(autor_id)
+                serializer = EventoSerializer(evento, data=data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            except Evento.DoesNotExist:
+                return Response({"detail": "Evento no encontrada para el autor especificado."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # Crear una nueva noticia
+            # data['autor'] = request.user.id
+            data['autor'] = int(autor_id)
+            serializer = EventoSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PublicidadMedicaoCreateUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
+
+    def post(self, request):
+        """
+        Endpoint para crear o actualizar una publicidad médica.
+        Si el autor está presente en el request, se actualiza una publicidad médica.
+        Si el autor no está presente, se crea una publicidad médica.
+        """
+        data = request.data.copy()
+        autor_id = data.get('autor')
+        try:
+            autor = User.objects.get(id=autor_id) if autor_id else request.user
+        except User.DoesNotExist:
+            return Response({"detail": "Autor no válido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # # Convertir valores booleanos desde cadenas "true" y "false"
+        # if 'destacada' in data:
+        #     data['destacada'] = data.get('destacada') == 'true'
+        # if 'activo' in data:
+        #     data['activo'] = data.get('activo') == 'true'
+
+        # Validar el campo link si existe y tiene un formato adecuado
+        # if data.get('link') != "null":
+            
+        #     try:
+        #         data['link'] = json.dumps({"link": data.get('link')})
+        #     except ValueError:
+        #         return Response({"detail": "El campo 'link' debe ser un objeto JSON válido con el formato {'link': url}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if data.get('id'):
+            # Actualizar la noticia existente
+            try:
+                publicidad_medica = PublicidadMedica.objects.get(id=data.get('id'))
+                data['autor'] = int(autor_id)
+                serializer = PublicidadMedicaSerializer(publicidad_medica, data=data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            except Evento.DoesNotExist:
+                return Response({"detail": "Publicidad Medica no encontrada para el autor especificado."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # Crear una nueva noticia
+            data['autor'] = int(autor_id)
+            serializer = PublicidadMedicaSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
 class PerfilViewSet(viewsets.ModelViewSet):
     queryset = Perfil.objects.all()
     serializer_class = PerfilSerializer
@@ -240,17 +376,103 @@ class GoogleLogin(APIView):
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
 
-        return Response({
-            "access": access_token,
-            "refresh": refresh_token,
+        # return Response({
+        #     "access": access_token,
+        #     "refresh": refresh_token,
+        #     "user": {
+        #         "username": user.username,
+        #         "email": user.email,
+        #         "perfiles": perfiles_data,
+        #         "name_google" : name_google,
+        #         "picture": picture_google
+        #     }
+        # }, status=status.HTTP_200_OK)
+        # Construir la respuesta
+        response_data = {
             "user": {
+                "id": user.id,
                 "username": user.username,
                 "email": user.email,
                 "perfiles": perfiles_data,
-                "name_google" : name_google,
+                "name_google": name_google,
                 "picture": picture_google
             }
-        }, status=status.HTTP_200_OK)
+        }
+        response = Response(response_data, status=status.HTTP_200_OK)
+
+        # Ajustar cookies con HttpOnly + Secure (según entorno)
+        from django.conf import settings
+        secure_cookie = not settings.DEBUG  # True en prod (HTTPS), False en dev
+        response.set_cookie(
+            key='access_token',
+            value=access_token,
+            httponly=True,
+            secure=secure_cookie,
+            samesite='None',  # asumiendo front/back en dominios distintos
+            max_age=60*2,     # 2 minutos
+            path='/'
+        )
+        response.set_cookie(
+            key='refresh_token',
+            value=refresh_token,
+            httponly=True,
+            secure=secure_cookie,
+            samesite='None',
+            max_age=60*60*24*7,  # 7 días
+            path='/'
+        )
+
+        return response
+
+
+class RefreshTokenView(APIView):
+    """
+    Endpoint para refrescar el token de acceso usando la cookie refresh_token.
+    """
+    def post(self, request):
+        refresh_cookie = request.COOKIES.get('refresh_token')
+        if not refresh_cookie:
+            return Response({"detail": "No refresh cookie provided."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            refresh = RefreshToken(refresh_cookie)
+            new_access_token = str(refresh.access_token)
+
+            # (Opcional) Rotar refresh token si quieres emitir uno nuevo
+            # new_refresh_token = str(RefreshToken.for_user(refresh.user))
+
+            response_data = {"detail": "Access token refreshed."}
+            response = Response(response_data, status=status.HTTP_200_OK)
+
+            # Setear de nuevo la cookie access_token
+            from django.conf import settings
+            secure_cookie = not settings.DEBUG
+            response.set_cookie(
+                key='access_token',
+                value=new_access_token,
+                httponly=True,
+                secure=secure_cookie,
+                samesite='None',
+                max_age=60*2,  # ej. 2 minutos
+                path='/'
+            )
+
+            # Si rota refresh token, setearlo también
+            # response.set_cookie(
+            #     key='refresh_token',
+            #     value=new_refresh_token,
+            #     httponly=True,
+            #     secure=secure_cookie,
+            #     samesite='None',
+            #     max_age=60*60*24*7,
+            #     path='/'
+            # )
+
+            return response
+
+        except Exception:
+            return Response({"detail": "Invalid or expired refresh token."},
+                            status=status.HTTP_401_UNAUTHORIZED)
 
 
 class LogoutView(APIView):

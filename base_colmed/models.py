@@ -9,7 +9,7 @@ TIPOS_PERFILES  = [
     ('admin_noticias', 'Administrador Noticias'),
     ('admin_colmed', 'Administrador Colmed'),
     ('gestor_informatico', 'Gestor Informático'),
-    ('admin_eventos', 'Administrador de Eventos'),
+    ('admin_eventos', 'Administrador de Eventos y Comunicaciones'),
     ('admin_sitio', 'Administrador del Sitio'),
 ]
 
@@ -52,12 +52,23 @@ class Plaza(models.Model):
 class Evento(models.Model):
     titulo = models.CharField(max_length=255)
     descripcion = models.TextField()
-    fecha_inicio = models.DateTimeField()
-    fecha_fin = models.DateTimeField()
-    id_evento_google = models.CharField(max_length=255)
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField()
+    id_evento_google = models.CharField(max_length=255, null=True, blank=True)
     autor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="eventos_creados")
     imagen = models.ImageField(upload_to='eventos/', null=True, blank=True)
-
+    
+    def __str__(self):
+        return self.titulo
+    
+class PublicidadMedica(models.Model):
+    titulo = models.CharField(max_length=255)
+    descripcion = models.TextField()
+    link = models.TextField()
+    autor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="publicidades_medicas_creadas")
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+    activo = models.BooleanField(default=True)
+    
     def __str__(self):
         return self.titulo
 

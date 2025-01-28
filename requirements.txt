@@ -69,3 +69,4 @@ google-auth-oauthlib
 pdfplumber
 redis
 django-celery-beat
+django-redis

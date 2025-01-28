@@ -30,8 +30,8 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG') == 'True'  # Convertir el string "True" a booleano
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')  # Convertir el string a lista
-
-# Application definition
+CORS_ALLOW_CREDENTIALS = True
+# Application definition                            
 
 SITE_ID = 1
 
@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     'base_colmed',
     'base_medicos',
     'base_noticias',
+    'django_celery_beat',
+    'django_celery_results',
 ]
 
 MIDDLEWARE = [
@@ -164,6 +166,22 @@ GOOGLE_CLIENT_ID  = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
 GOOGLE_DRIVE_SUPER = os.getenv('GOOGLE_DRIVE_SUPER')
 GOOGLE_DRIVE_SR = os.getenv('GOOGLE_DRIVE_SR')
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+
+
+# Celery
+#CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
+# CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
+# CELERY_BROKER_URL='redis://redis:6379/0'
+# CELERY_RESULT_BACKEND='redis://redis:6379/0'
+#CELERY_BROKER_URL='redis://172.22.85.193:6379/0'
+CELERY_BROKER_URL='redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/Santiago'
 
 # Configuración para el proveedor de OAuth2 (Google)
 SOCIALACCOUNT_PROVIDERS = {
@@ -195,7 +213,9 @@ LOGOUT_REDIRECT_URL = '/'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'base_colmed.authentication.CookieJWTAuthentication',
+        
     ),
     # 'DEFAULT_AUTHENTICATION_CLASSES': [
     #     'rest_framework.authentication.SessionAuthentication',

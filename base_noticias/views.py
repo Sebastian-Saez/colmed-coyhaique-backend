@@ -9,6 +9,9 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from base_colmed.authentication import CookieJWTAuthentication
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 
 class NoticiaViewSet(viewsets.ModelViewSet):
     queryset = Noticia.objects.all()
@@ -35,9 +38,10 @@ class NoticiaViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(noticias, many=True)
         return Response(serializer.data)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class NoticiaCreateUpdateView(APIView):
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
 
     def post(self, request):
         """
@@ -45,6 +49,7 @@ class NoticiaCreateUpdateView(APIView):
         Si el autor está presente en el request, se actualiza la noticia existente.
         Si el autor no está presente, se crea una nueva noticia.
         """
+        
         data = request.data.copy()
         autor_id = data.get('autor')
         try:
@@ -70,6 +75,7 @@ class NoticiaCreateUpdateView(APIView):
             # Actualizar la noticia existente
             try:
                 noticia = Noticia.objects.get(id=data.get('id'))
+                data['autor'] = int(autor_id)
                 serializer = NoticiaSerializer(noticia, data=data, partial=True)
                 if serializer.is_valid():
                     serializer.save()
@@ -79,7 +85,7 @@ class NoticiaCreateUpdateView(APIView):
                 return Response({"detail": "Noticia no encontrada para el autor especificado."}, status=status.HTTP_404_NOT_FOUND)
         else:
             # Crear una nueva noticia
-            data['autor'] = request.user.id
+            data['autor'] = int(autor_id)
             serializer = NoticiaSerializer(data=data)
             if serializer.is_valid():
                 serializer.save()

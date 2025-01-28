@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Beneficio, Plaza, Evento, Perfil, Entidad, Estamento, LugarDescuento
+from .models import Beneficio, Plaza, Evento, Perfil, Entidad, Estamento, LugarDescuento, PublicidadMedica
 from django.contrib.auth.models import User
 
 class PerfilSerializer(serializers.ModelSerializer):
@@ -42,9 +42,19 @@ class EntidadSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class EventoSerializer(serializers.ModelSerializer):
-    autor = UserSerializer(read_only=True) 
+    # autor = UserSerializer(read_only=True) 
+    #autor = UserSerializer()
+    autor = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     
     class Meta:
         model = Evento
+        fields = '__all__'
+
+class PublicidadMedicaSerializer(serializers.ModelSerializer):
+    # autor = UserSerializer(read_only=True) 
+    autor = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    
+    class Meta:
+        model = PublicidadMedica
         fields = '__all__'
 

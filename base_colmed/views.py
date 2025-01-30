@@ -365,7 +365,7 @@ class GoogleLogin(APIView):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            return Response({"detail": "User not authorized."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"detail": "User not authorized or not registered in the system"}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Obtener perfiles del usuario
         perfiles = Perfil.objects.filter(user=user)

@@ -1,6 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
 from base_colmed.models import Plaza, Entidad, LugarDescuento, Estamento
+from django.contrib.auth.hashers import make_password
+import uuid
+from django.utils import timezone
+from datetime import timedelta
 
 TIPOS_ESTADO_PAGO  = [
     ('al_dia', 'AL DIA'),
@@ -101,7 +105,7 @@ class Medico(models.Model):
 
     def __str__(self):
         return f"{self.user} ({self.icm})"
-
+    
 class Afiliacion(models.Model):
     medico = models.ForeignKey(Medico, on_delete=models.CASCADE)
     entidad = models.ForeignKey(Entidad, on_delete=models.CASCADE)
@@ -128,3 +132,29 @@ class Cuota(models.Model):
         return f'Cuota {self.monto} - {self.fecha}'
     
 
+
+#########################################################################
+#Manejo de usuarios en App móvil
+class MedicoAppMovil(models.Model):
+    medico = models.ForeignKey(Medico, on_delete=models.CASCADE)
+    fecha_inscripcion = models.DateTimeField(auto_now=True)
+    contraseña = models.CharField(max_length=200)
+    email = models.CharField(max_length=200, blank=True, null=True)
+    fcm_token = models.CharField(max_length=200, blank=True, null=True, default="")
+
+    def set_password(self, raw_password):
+        self.contraseña = make_password(raw_password)
+        self.save()
+
+    def __str__(self):
+        return f"Usuario App Movil: {self.medico.icm}"
+    
+class PasswordResetToken(models.Model):
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    medico_app_movil = models.ForeignKey(MedicoAppMovil, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used = models.BooleanField(default=False)
+    
+    def is_expired(self, minutes=15):
+        """Expira 1 hora (puedes ajustar a tus necesidades)."""
+        return timezone.now() > self.created_at + timedelta(minutes=minutes)

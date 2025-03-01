@@ -357,20 +357,16 @@ class MedicoViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(medicos_filtrados, many=True)
         return Response(serializer.data)
     
-
-    # @action(detail=False, methods=['get'])
-    # def por_estados_pago(self, request):
-    #     estados = request.query_params.getlist('pagos')
-    #     if not estados:
-    #         return Response({"detail": "Debe proporcionar al menos una estado de pago en los parámetros de consulta."}, status=status.HTTP_400_BAD_REQUEST)
+    @action(detail=False, methods=['get'])
+    def medico_app(self, request, pk=None):
+        usuario = request.query_params.get('usuario')
         
-    #     # Filtrar médicos que tienen afiliaciones con las entidades especificadas
-    #     medicos_filtrados = Medico.objects.filter(
-    #         afiliacion__estado_pago__in=estados
-    #     ).distinct()
+        medico = Medico.objects.get(user__id=usuario)
         
-    #     serializer = self.get_serializer(medicos_filtrados, many=True)
-    #     return Response(serializer.data)
+        
+        serializer = self.get_serializer(medico)
+        return Response(serializer.data)    
+    
 
     @action(detail=False, methods=['post'], url_path='por_afiliacion')
     def por_afiliacion(self, request):

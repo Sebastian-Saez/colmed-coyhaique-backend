@@ -70,3 +70,4 @@ pdfplumber
 redis
 django-celery-beat
 django-redis
+firebase-admin

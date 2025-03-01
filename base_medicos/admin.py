@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Medico, Afiliacion, RegistroSuperintendencia, Institucion, Especialidad, OrdenProfesional
+from .models import Medico, Afiliacion, RegistroSuperintendencia, Institucion, Especialidad, OrdenProfesional, MedicoAppMovil
 
 @admin.register(Medico)
 class MedicoAdmin(admin.ModelAdmin):
@@ -25,6 +25,23 @@ class MedicoAdmin(admin.ModelAdmin):
     def user_email(self, obj):
         return obj.user.email if obj.user else None
     user_email.short_description = 'Email'
+
+@admin.register(MedicoAppMovil)
+class MedicoAppMovilAdmin(admin.ModelAdmin):
+    list_display = ('user_first_name','user_last_name','user_email','email','fecha_inscripcion','fcm_token')
+    list_filter = ['email', 'fecha_inscripcion']
+
+    def user_first_name(self, obj):
+        return obj.medico.user.first_name if obj.medico else None
+    user_first_name.short_description = 'Nombre'
+
+    def user_last_name(self, obj):
+        return obj.medico.user.last_name if obj.medico else None
+    user_last_name.short_description = 'Apellido'
+
+    def user_email(self, obj):
+        return obj.medico.user.email if obj.medico else None
+    user_email.short_description = 'Email Usuario'
 
 @admin.register(Afiliacion)
 class AfiliacionAdmin(admin.ModelAdmin):

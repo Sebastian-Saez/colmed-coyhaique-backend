@@ -241,5 +241,19 @@ USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
-ALLOWED_HOSTS.append('10.0.2.2')
-CORS_ALLOWED_ORIGINS.append('http://10.0.2.2:8001')
+# ALLOWED_HOSTS.append('10.0.2.2')
+# ALLOWED_HOSTS.append('192.168.1.23')
+# ALLOWED_HOSTS.append('172.22.85.193')
+# CORS_ALLOWED_ORIGINS.append('http://10.0.2.2:8001')
+# CORS_ALLOWED_ORIGINS.append('http://192.168.1.23:8001')
+# CORS_ALLOWED_ORIGINS.append('http://192.168.1.23:8080')
+# CORS_ALLOWED_ORIGINS.append('http://172.22.85.193:8080')
+
+
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
+EMAIL_HOST_USER = "ticsaysen@colegiomedico.cl"
+EMAIL_HOST_PASSWORD = "qpts estr hxng bnks"

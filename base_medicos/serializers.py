@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Medico, Cuota, Afiliacion, Institucion,Especialidad,RegistroSuperintendencia, OrdenProfesional
+from .models import Medico, Cuota, Afiliacion, Institucion,Especialidad,RegistroSuperintendencia, OrdenProfesional, MedicoAppMovil, PasswordResetToken
 from base_colmed.serializers import UserSerializer, PlazaSerializer, EntidadSerializer, EstamentoSerializer, LugarDescuentoSerializer
 
 
@@ -51,3 +51,9 @@ class MedicoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Medico
         fields = '__all__'
+
+class MedicoAppMovilSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicoAppMovil
+        fields = '__all__'
+

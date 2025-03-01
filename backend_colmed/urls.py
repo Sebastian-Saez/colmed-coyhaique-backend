@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from base_colmed.views import GoogleLogin, LogoutView, RefreshTokenView
+from base_colmed.views import GoogleLogin, LogoutView, RefreshTokenView, GoogleLoginMobile, RegisterMedicoAppMovilView, LoginMedicoAppMovilView, RequestPasswordResetView, ConfirmPasswordResetView, ChangePasswordView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -27,6 +27,14 @@ urlpatterns = [
     
 
     path('api/auth/google/', GoogleLogin.as_view(), name='google_login'),
+    #endpoints para aplicación movil
+    path('api/app/login/', LoginMedicoAppMovilView.as_view(), name='login-app'),
+    path('api/app/register/', RegisterMedicoAppMovilView.as_view(), name='register-app'),
+    path('api/app/login-google/', GoogleLoginMobile.as_view(), name='login-google-app'),
+    path('api/app/confirm-pass-reset/', ConfirmPasswordResetView.as_view(), name='confirm-pass-reset'),
+    path('api/app/pass-reset/', RequestPasswordResetView.as_view(), name='pass-reset'),
+    path('api/app/update-password/', ChangePasswordView.as_view(), name='update-password'),
+    #fin endpoints para aplicación móvil
     path('api/token/refresh/', RefreshTokenView.as_view(), name='token_refresh'),
     path('api/auth/logout/', LogoutView.as_view(), name='logout'),
     path('accounts/', include('allauth.urls')),

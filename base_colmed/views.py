@@ -124,8 +124,8 @@ class LinkInteresViewSet(viewsets.ModelViewSet):
     
 @method_decorator(csrf_exempt, name='dispatch')
 class EventoCreateUpdateView(APIView):
-    # permission_classes = [IsAuthenticated]
-    # authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def post(self, request):
         """

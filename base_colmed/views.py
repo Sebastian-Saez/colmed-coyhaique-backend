@@ -11,11 +11,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
-from .models import Beneficio, Plaza, Evento, Perfil, PublicidadMedica
+from .models import Beneficio, Plaza, Evento, Perfil, PublicidadMedica, Convenio, ConveniosConfig, ContactoInteres,LinkInteres
 from base_medicos.models import Medico, MedicoAppMovil, PasswordResetToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .serializers import BeneficioSerializer, PlazaSerializer, EventoSerializer, PerfilSerializer, PublicidadMedicaSerializer
+from .serializers import BeneficioSerializer, PlazaSerializer, EventoSerializer, PerfilSerializer, PublicidadMedicaSerializer, ConveniosConfigSerializer, ConvenioSerializer, ContactoInteresSerializer, LinkInteresSerializer
 from django.utils.translation import gettext_lazy as _
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from dj_rest_auth.serializers import JWTSerializer
@@ -57,7 +57,14 @@ class EventoViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def eventos_base(self, request):
         """Endpoint para obtener todos los eventos."""
-        eventos = Evento.objects.all().order_by('-fecha_inicio')
+        eventos = Evento.objects.all().order_by('-fecha_inicio').exclude(privado=True)
+        serializer = self.get_serializer(eventos, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def eventos_base_app(self, request):
+        """Endpoint para obtener todos los eventos."""
+        eventos = Evento.objects.all().order_by('-fecha_inicio').exclude(activo=False)
         serializer = self.get_serializer(eventos, many=True)
         return Response(serializer.data)
     
@@ -79,6 +86,42 @@ class PublicidadMedicaViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(publicidades, many=True)
         return Response(serializer.data)
     
+class ContactoInteresViewSet(viewsets.ModelViewSet):
+    queryset = ContactoInteres.objects.all()
+    serializer_class = ContactoInteresSerializer
+
+    @action(detail=False, methods=['get'])
+    def contactos_publicos(self, request):
+        """Endpoint para obtener todas contactos publicos."""
+        contactos = ContactoInteres.objects.filter(privado=False)
+        serializer = self.get_serializer(contactos, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def contactos_privados(self, request):
+        """Endpoint para obtener todos los contactos privados"""
+        contactos = ContactoInteres.objects.filter(privado=True)
+        serializer = self.get_serializer(contactos, many=True)
+        return Response(serializer.data)
+    
+class LinkInteresViewSet(viewsets.ModelViewSet):
+    queryset = LinkInteres.objects.all()
+    serializer_class = LinkInteresSerializer
+
+    @action(detail=False, methods=['get'])
+    def todos_links(self, request):
+        """Endpoint para obtener todas contactos publicos."""
+        links = LinkInteres.objects.order_by('orden')
+        serializer = self.get_serializer(links, many=True)
+        return Response(serializer.data)
+    
+    # @action(detail=False, methods=['get'])
+    # def contactos_privados(self, request):
+    #     """Endpoint para obtener todos los contactos privados"""
+    #     contactos = ContactoInteres.objects.filter(privado=True)
+    #     serializer = self.get_serializer(contactos, many=True)
+    #     return Response(serializer.data)
+    
 @method_decorator(csrf_exempt, name='dispatch')
 class EventoCreateUpdateView(APIView):
     # permission_classes = [IsAuthenticated]
@@ -96,21 +139,7 @@ class EventoCreateUpdateView(APIView):
         try:
             autor = User.objects.get(id=autor_id) if autor_id else request.user
         except User.DoesNotExist:
-            return Response({"detail": "Autor no válido."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # # Convertir valores booleanos desde cadenas "true" y "false"
-        # if 'destacada' in data:
-        #     data['destacada'] = data.get('destacada') == 'true'
-        # if 'activo' in data:
-        #     data['activo'] = data.get('activo') == 'true'
-
-        # Validar el campo link si existe y tiene un formato adecuado
-        # if data.get('link') != "null":
-            
-        #     try:
-        #         data['link'] = json.dumps({"link": data.get('link')})
-        #     except ValueError:
-        #         return Response({"detail": "El campo 'link' debe ser un objeto JSON válido con el formato {'link': url}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Autor no válido."}, status=status.HTTP_400_BAD_REQUEST)        
 
         if data.get('id'):
             # Actualizar la noticia existente
@@ -139,12 +168,24 @@ class EventoCreateUpdateView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
     def send_event_notification(self, evento):
+        # """
+        # Envía una notificación push cuando se crea un nuevo evento.
+        # """
+        # title = "¡Nuevo Evento Colmed Aysén!"
+        # body = "'" + str(evento.titulo) + "'"
+        # data_payload = {"event_id": str(evento.id), "type": "nuevo_evento"}
         """
         Envía una notificación push cuando se crea un nuevo evento.
+        El mensaje varía según si el evento es privado o público.
         """
-        title = "¡Nuevo Evento Colmed Aysén!"
-        body = "'" + str(evento.titulo) + "'"
-        data_payload = {"event_id": str(evento.id), "type": "nuevo_evento"}
+        if evento.privado:
+            title = "¡Evento para Colegiados - Colmed Aysén!"
+            body = "Evento privado: " + str(evento.titulo)
+            data_payload = {"event_id": str(evento.id), "type": "nuevo_evento_privado"}
+        else:
+            title = "¡Nuevo Evento Colmed Aysén!"
+            body = "Evento público: " + str(evento.titulo)
+            data_payload = {"event_id": str(evento.id), "type": "nuevo_evento_publico"}
         
         # Obtener los tokens de los dispositivos registrados
         tokens = list(
@@ -176,20 +217,6 @@ class PublicidadMedicaoCreateUpdateView(APIView):
         except User.DoesNotExist:
             return Response({"detail": "Autor no válido."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # # Convertir valores booleanos desde cadenas "true" y "false"
-        # if 'destacada' in data:
-        #     data['destacada'] = data.get('destacada') == 'true'
-        # if 'activo' in data:
-        #     data['activo'] = data.get('activo') == 'true'
-
-        # Validar el campo link si existe y tiene un formato adecuado
-        # if data.get('link') != "null":
-            
-        #     try:
-        #         data['link'] = json.dumps({"link": data.get('link')})
-        #     except ValueError:
-        #         return Response({"detail": "El campo 'link' debe ser un objeto JSON válido con el formato {'link': url}"}, status=status.HTTP_400_BAD_REQUEST)
-
         if data.get('id'):
             # Actualizar la noticia existente
             try:
@@ -200,7 +227,7 @@ class PublicidadMedicaoCreateUpdateView(APIView):
                     serializer.save()
                     return Response(serializer.data, status=status.HTTP_200_OK)
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            except Evento.DoesNotExist:
+            except PublicidadMedica.DoesNotExist:
                 return Response({"detail": "Publicidad Medica no encontrada para el autor especificado."}, status=status.HTTP_404_NOT_FOUND)
         else:
             # Crear una nueva noticia
@@ -213,6 +240,35 @@ class PublicidadMedicaoCreateUpdateView(APIView):
 
 
 
+class ConvenioViewSet(viewsets.ModelViewSet):
+    queryset = Convenio.objects.all()
+    serializer_class = ConvenioSerializer
+
+    @action(detail=False, methods=['get'])
+    def todos_convenios(self, request):
+        # Obtener todos los convenios
+        convenios = Convenio.objects.all()
+
+        # Filtrar por tipo
+        nacionales = convenios.filter(tipo='nacional')
+        regionales = convenios.filter(tipo='regional')
+
+        # Serializar los datos
+        serializer_nacionales = ConvenioSerializer(nacionales, many=True, context={'request': request})
+        serializer_regionales = ConvenioSerializer(regionales, many=True, context={'request': request})
+
+        # Obtener la configuración (asumido que existe un único registro o se toma el primero)
+        config = ConveniosConfig.objects.first()
+        config_serializer = ConveniosConfigSerializer(config) if config else None
+
+        data = {
+            "nacionales": serializer_nacionales.data,
+            "regionales": serializer_regionales.data,
+        }
+        if config_serializer:
+            data["todos_convenios_link"] = config_serializer.data.get('todos_convenios_link')
+
+        return Response(data)
 
 class PerfilViewSet(viewsets.ModelViewSet):
     queryset = Perfil.objects.all()
@@ -624,23 +680,55 @@ class RegisterMedicoAppMovilView(APIView):
 
         # Verificar si ya existe un MedicoAppMovil con ese email 
         # (podrías verificar también si coincide con el mismo medico)
-        if MedicoAppMovil.objects.filter(email=email).exists():
-            return Response(
-                {"detail": "Ya existe un registro con este email en MedicoAppMovil."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # if MedicoAppMovil.objects.filter(email=email).exists():
+        #     return Response(
+        #         {"detail": "Ya existe un registro con este email en MedicoAppMovil."},
+        #         status=status.HTTP_400_BAD_REQUEST
+        #     )
 
-        # Crear el registro
-        medico_app_movil = MedicoAppMovil.objects.create(
-            medico=medico_obj,
-            email=email,
-            contraseña=""  # Se setea vacía y luego se usa set_password
-        )
-        # Guardar la contraseña hasheada
-        medico_app_movil.set_password(password)
+        # # Crear el registro
+        # medico_app_movil = MedicoAppMovil.objects.create(
+        #     medico=medico_obj,
+        #     email=email,
+        #     contraseña=""  # Se setea vacía y luego se usa set_password
+        # )
+        # # Guardar la contraseña hasheada
+        # medico_app_movil.set_password(password)
         
-        return Response({"detail": "Registro creado exitosamente."}, 
-                        status=status.HTTP_201_CREATED)
+        # return Response({"detail": "Registro creado exitosamente."}, 
+        #                 status=status.HTTP_201_CREATED)
+
+        try:
+            # Intentar obtener un registro existente en MedicoAppMovil para el email dado
+            medico_app = MedicoAppMovil.objects.get(email=email)
+            # Si ya tiene contraseña (es decir, password no está vacío), se retorna error.
+            
+            if medico_app.contraseña:
+                return Response(
+                    {"detail": "Ya existe un registro con este email en MedicoAppMovil."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                # Si existe pero la contraseña está vacía, actualizamos el registro.
+                medico_app.set_password(password)
+                medico_app.save()
+                return Response(
+                    {"detail": "Registro actualizado exitosamente."},
+                    status=status.HTTP_200_OK
+                )
+        except MedicoAppMovil.DoesNotExist:
+            # Crear un nuevo registro
+            medico_app = MedicoAppMovil.objects.create(
+                medico=medico_obj,
+                email=email,
+                contraseña=""  # Se inicializa vacío; luego se setea mediante set_password
+            )
+            medico_app.set_password(password)
+            medico_app.save()
+            return Response(
+                {"detail": "Registro creado exitosamente."},
+                status=status.HTTP_201_CREATED
+            )
 
 class LoginMedicoAppMovilView(APIView):
     """

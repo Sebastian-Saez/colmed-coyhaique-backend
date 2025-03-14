@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Beneficio, Plaza, Evento, Perfil, Entidad, Estamento, LugarDescuento, PublicidadMedica
+from .models import Beneficio, Plaza, Evento, Perfil, Entidad, Estamento, LugarDescuento, PublicidadMedica, ConveniosConfig, Convenio, ContactoInteres, LinkInteres
 from django.contrib.auth.models import User
 
 class PerfilSerializer(serializers.ModelSerializer):
@@ -56,5 +56,25 @@ class PublicidadMedicaSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PublicidadMedica
+        fields = '__all__'
+    
+class ConvenioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Convenio
+        fields = ('titulo', 'descripcion', 'ref', 'tipo')
+
+class ConveniosConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConveniosConfig
+        fields = ('todos_convenios_link',)
+        
+class ContactoInteresSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactoInteres
+        fields = '__all__'
+
+class LinkInteresSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LinkInteres
         fields = '__all__'
 

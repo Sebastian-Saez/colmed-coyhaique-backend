@@ -57,9 +57,56 @@ class Evento(models.Model):
     id_evento_google = models.CharField(max_length=255, null=True, blank=True)
     autor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="eventos_creados")
     imagen = models.ImageField(upload_to='eventos/', null=True, blank=True)
+    privado = models.BooleanField(default=False)
+    activo = models.BooleanField(default=True)
     
     def __str__(self):
         return self.titulo
+    
+class Convenio(models.Model):
+    TIPO_CHOICES = (
+        ('nacional', 'Nacional'),
+        ('regional', 'Regional'),
+    )
+    
+    titulo = models.CharField(max_length=255)
+    descripcion = models.TextField(blank=True, null=True)
+    # Campo para determinar si el convenio es para convenios nacionales o regionales
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    # Enlace opcional (por ejemplo, para los convenios nacionales se puede redirigir a más detalles)
+    ref = models.URLField(blank=True, null=True)
+    # Si se requiere, se puede almacenar una imagen
+    # imagen = models.ImageField(upload_to='convenios/', blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Convenio'
+        verbose_name_plural = 'Convenios'
+    
+    def __str__(self):
+        return self.titulo
+
+
+class ConveniosConfig(models.Model):
+    """
+    Modelo de configuración para almacenar datos generales de los convenios,
+    como el enlace para 'Todos los convenios'.
+    """
+    todos_convenios_link = models.URLField(
+        help_text="URL para 'Todos los convenios'",
+        blank=True,
+        null=True
+    )
+
+    def __str__(self):
+        return "Configuración de Convenios"
+
+    class Meta:
+        verbose_name = "Configuración de Convenios"
+        verbose_name_plural = "Configuraciones de Convenios"
     
 class PublicidadMedica(models.Model):
     titulo = models.CharField(max_length=255)
@@ -95,3 +142,34 @@ class LugarDescuento(models.Model):
 
     def __str__(self):
         return self.nombre_lugar
+    
+
+class LinkInteres(models.Model):
+    titulo = models.CharField(max_length=255)
+    clave = models.CharField(max_length=30, blank=True, null=True)
+    descripcion = models.TextField(blank=True, null=True)
+    url = models.URLField()
+    orden = models.PositiveIntegerField(default=0)  # Para ordenarlos si es necesario
+
+    class Meta:
+        ordering = ['orden']
+        verbose_name = "Link de Interés"
+        verbose_name_plural = "Links de Interés"
+
+    def __str__(self):
+        return self.titulo
+
+
+class ContactoInteres(models.Model):
+    nombre = models.CharField(max_length=255)
+    cargo = models.CharField(max_length=255)
+    telefono = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField()
+    privado = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Contacto de Interés"
+        verbose_name_plural = "Contactos de Interés"
+
+    def __str__(self):
+        return self.nombre

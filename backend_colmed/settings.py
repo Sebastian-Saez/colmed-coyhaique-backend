@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'base_colmed',
     'base_medicos',
     'base_noticias',
+    'base_toolbar',
     'django_celery_beat',
     'django_celery_results',
 ]
@@ -163,6 +164,7 @@ CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS').split(',')
 
 GOOGLE_SERVICE_ACCOUNT_JSON = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
 GOOGLE_CLIENT_ID  = os.getenv('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_IDS  = os.getenv('GOOGLE_CLIENT_IDS').split(',')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
 GOOGLE_DRIVE_SUPER = os.getenv('GOOGLE_DRIVE_SUPER')
 GOOGLE_DRIVE_SR = os.getenv('GOOGLE_DRIVE_SR')
@@ -256,4 +258,4 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 EMAIL_HOST_USER = "ticsaysen@colegiomedico.cl"
-EMAIL_HOST_PASSWORD = "qpts estr hxng bnks"
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')

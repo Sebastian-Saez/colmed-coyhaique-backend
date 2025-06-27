@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 import json
+import time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.http import JsonResponse
@@ -22,7 +23,7 @@ from dj_rest_auth.serializers import JWTSerializer
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from backend_colmed.settings import GOOGLE_CLIENT_ID, EMAIL_HOST_USER
+from backend_colmed.settings import GOOGLE_CLIENT_ID, EMAIL_HOST_USER, GOOGLE_CLIENT_IDS
 from base_colmed.authentication import CookieJWTAuthentication
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -101,6 +102,13 @@ class ContactoInteresViewSet(viewsets.ModelViewSet):
     def contactos_privados(self, request):
         """Endpoint para obtener todos los contactos privados"""
         contactos = ContactoInteres.objects.filter(privado=True)
+        serializer = self.get_serializer(contactos, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def todos_los_contactos(self, request):
+        """Endpoint para obtener todos los contactos"""
+        contactos = ContactoInteres.objects.order_by('nombre')
         serializer = self.get_serializer(contactos, many=True)
         return Response(serializer.data)
     
@@ -434,14 +442,27 @@ class GoogleLogin(APIView):
                 GOOGLE_CLIENT_ID,
                 clock_skew_in_seconds=300  # tolerancia de 5 minutos
             )
+
+            # 1️⃣ Valida el emisor
+            if idinfo['iss'] not in ('accounts.google.com', 'https://accounts.google.com'):
+                return Response(
+                    {"detail": "Invalid issuer"}, status=status.HTTP_401_UNAUTHORIZED
+                )  # Google exige este paso :contentReference[oaicite:8]{index=8}
+            print("\n\nPaso validación de emisor\n")
+
+            if idinfo['aud'] != GOOGLE_CLIENT_ID:
+                return Response({"detail": "Invalid audience."}, status=status.HTTP_401_UNAUTHORIZED)
             
+            # 3️⃣ Valida la caducidad
+            if idinfo['exp'] < time.time():
+                return Response({"detail": "Token expired"}, status=status.HTTP_401_UNAUTHORIZED)
+            print("\n\nPaso validación de expiración\n\n")
             # Si la validación es exitosa, idinfo contendrá el email del usuario.
             email = idinfo.get('email')
             if not email:
                 return Response({"detail": "Invalid token: no email found."}, status=status.HTTP_400_BAD_REQUEST)
             
-            if idinfo['aud'] != GOOGLE_CLIENT_ID:
-                return Response({"detail": "Invalid audience."}, status=status.HTTP_401_UNAUTHORIZED)
+            
             name_google = idinfo.get('name')
             picture_google = idinfo.get('picture')
         except ValueError:
@@ -522,28 +543,45 @@ class GoogleLoginMobile(APIView):
         
         id_token_google = request.data.get('id_token')
         fcm_token = request.data.get('fcm_token', None)
-
+    
         if not id_token_google:
             return Response({"detail": "id_token is required."}, status=status.HTTP_400_BAD_REQUEST)
         
-        # idinfo = id_token.verify_oauth2_token(id_token_google, requests.Request(), GOOGLE_CLIENT_ID)
+        # idinfo = id_token.verify_oauth2_token(id_token_google, requests.Request(), GOOGLE_CLIENT_IDS)
         
         # Validar el id_token con Google
         try:
             idinfo = id_token.verify_oauth2_token(
                 id_token_google,
                 requests.Request(),
-                GOOGLE_CLIENT_ID,
+                audience=None,
                 clock_skew_in_seconds=300  # tolerancia de 5 minutos
             )
+
+
+            # 1️⃣ Valida el emisor
+            if idinfo['iss'] not in ('accounts.google.com', 'https://accounts.google.com'):
+                return Response(
+                    {"detail": "Invalid issuer"}, status=status.HTTP_401_UNAUTHORIZED
+                )  # Google exige este paso :contentReference[oaicite:8]{index=8}
+
+            # 2️⃣ Valida la audiencia (múltiples client-ID)
+            if idinfo['aud'] not in settings.GOOGLE_CLIENT_IDS:
+                return Response({"detail": "Invalid audience"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            # 3️⃣ Valida la caducidad
+            if idinfo['exp'] < time.time():
+                return Response({"detail": "Token expired"}, status=status.HTTP_401_UNAUTHORIZED)
             
             # Si la validación es exitosa, idinfo contendrá el email del usuario.
             email = idinfo.get('email')
             if not email:
                 return Response({"detail": "Invalid token: no email found."}, status=status.HTTP_400_BAD_REQUEST)
             
-            if idinfo['aud'] != GOOGLE_CLIENT_ID:
-                return Response({"detail": "Invalid audience."}, status=status.HTTP_401_UNAUTHORIZED)
+            # if idinfo['aud'] != GOOGLE_CLIENT_IDS:
+            #     return Response({"detail": "Invalid audience."}, status=status.HTTP_401_UNAUTHORIZED)
+            # if idinfo["aud"] not in settings.GOOGLE_CLIENT_IDS:
+            #     return Response({"detail": "Invalid audience."}, status=status.HTTP_401_UNAUTHORIZED)
             name_google = idinfo.get('name')
             picture_google = idinfo.get('picture')
         except ValueError:
@@ -583,7 +621,7 @@ class GoogleLoginMobile(APIView):
          # 3) Si no se encontró ni en MedicoAppMovil ni en User => 403
         if not medico_app_movil and not user:
             return Response(
-                {"detail": "No registrado. Por favor provea su ICM para registro."},
+                {"detail": "Email no registrado en Colmed Aysén. Por favor, provea su ICM para registro en la App."},
                 status=status.HTTP_403_FORBIDDEN
             )
         

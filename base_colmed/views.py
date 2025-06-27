@@ -442,7 +442,7 @@ class GoogleLogin(APIView):
                 GOOGLE_CLIENT_ID,
                 clock_skew_in_seconds=300  # tolerancia de 5 minutos
             )
-
+            print("idinfo " , idinfo)
             # 1️⃣ Valida el emisor
             if idinfo['iss'] not in ('accounts.google.com', 'https://accounts.google.com'):
                 return Response(
@@ -566,7 +566,7 @@ class GoogleLoginMobile(APIView):
                 )  # Google exige este paso :contentReference[oaicite:8]{index=8}
 
             # 2️⃣ Valida la audiencia (múltiples client-ID)
-            if idinfo['aud'] not in settings.GOOGLE_CLIENT_IDS:
+            if idinfo['aud'] not in GOOGLE_CLIENT_IDS:
                 return Response({"detail": "Invalid audience"}, status=status.HTTP_401_UNAUTHORIZED)
 
             # 3️⃣ Valida la caducidad

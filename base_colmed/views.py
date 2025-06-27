@@ -914,8 +914,8 @@ class RequestPasswordResetView(APIView):
         user_email = medico_app_movil.email
         
         # Construye el link: la idea es que el front reciba el token y muestre un form
-        #reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token.token}"
-        reset_link = f"http://localhost:8080/#/colmed/confirm-pass-reset?token={reset_token.token}"        
+        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token.token}"
+        #reset_link = f"http://localhost:8080/#/colmed/confirm-pass-reset?token={reset_token.token}"        
 
         text_content = (
             "Hola,\n\n"

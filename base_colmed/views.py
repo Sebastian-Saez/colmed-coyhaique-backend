@@ -23,7 +23,7 @@ from dj_rest_auth.serializers import JWTSerializer
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from backend_colmed.settings import GOOGLE_CLIENT_ID, EMAIL_HOST_USER, GOOGLE_CLIENT_IDS
+from backend_colmed.settings import GOOGLE_CLIENT_ID, EMAIL_HOST_USER, GOOGLE_CLIENT_IDS, FRONTEND_URL
 from base_colmed.authentication import CookieJWTAuthentication
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -881,6 +881,7 @@ class RequestPasswordResetView(APIView):
     """
     def post(self, request):
         identifier = request.data.get("identifier")
+        print("\n\nidentifier? ", identifier)
         if not identifier:
             return Response(
                 {"detail": _("Debes proporcionar tu email o tu ICM.")},
@@ -914,7 +915,8 @@ class RequestPasswordResetView(APIView):
         user_email = medico_app_movil.email
         
         # Construye el link: la idea es que el front reciba el token y muestre un form
-        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token.token}"
+        #reset_link = f"{FRONTEND_URL}/reset-password?token={reset_token.token}"
+        reset_link = f"{FRONTEND_URL}/#/colmed/confirm-pass-reset?token={reset_token.token}"
         #reset_link = f"http://localhost:8080/#/colmed/confirm-pass-reset?token={reset_token.token}"        
 
         text_content = (

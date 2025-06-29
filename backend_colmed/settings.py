@@ -255,9 +255,18 @@ FRONTEND_URL = os.getenv('URL_COLMEDAYSEN')
 
 
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_USE_TLS = True
-EMAIL_PORT = 587
-EMAIL_HOST_USER = "ticsaysen@colegiomedico.cl"
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# EMAIL_HOST = "smtp.gmail.com"
+# EMAIL_USE_TLS = True
+# EMAIL_PORT = 587
+# EMAIL_HOST_USER = "ticsaysen@colegiomedico.cl"
+# EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
+
+
+EMAIL_BACKEND   = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST      = "smtp.sendgrid.net"
+EMAIL_PORT      = 2525        # evita el bloqueo 25/465/587
+EMAIL_USE_TLS   = True
+EMAIL_HOST_USER = "apikey"
+EMAIL_HOST_PASSWORD = os.getenv("SENDGRID_API_KEY")
+DEFAULT_FROM_EMAIL = os.getenv("EMAIL_FROM_USER")

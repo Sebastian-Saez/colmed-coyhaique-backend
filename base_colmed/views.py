@@ -23,7 +23,7 @@ from dj_rest_auth.serializers import JWTSerializer
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from backend_colmed.settings import GOOGLE_CLIENT_ID, EMAIL_HOST_USER, GOOGLE_CLIENT_IDS, FRONTEND_URL
+from backend_colmed.settings import GOOGLE_CLIENT_ID, EMAIL_HOST_USER, GOOGLE_CLIENT_IDS, FRONTEND_URL, DEFAULT_FROM_EMAIL
 from base_colmed.authentication import CookieJWTAuthentication
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -881,7 +881,7 @@ class RequestPasswordResetView(APIView):
     """
     def post(self, request):
         identifier = request.data.get("identifier")
-        print("\n\nidentifier? ", identifier)
+
         if not identifier:
             return Response(
                 {"detail": _("Debes proporcionar tu email o tu ICM.")},
@@ -986,9 +986,11 @@ class RequestPasswordResetView(APIView):
             </div>
             """
         from django.core.mail import EmailMultiAlternatives
-        msg = EmailMultiAlternatives(subject, text_content, EMAIL_HOST_USER, [user_email])
+
+        msg = EmailMultiAlternatives(subject, text_content, DEFAULT_FROM_EMAIL, [user_email])
         msg.attach_alternative(html_content, "text/html")
-        msg.send()
+        msg.send(fail_silently=False)
+
 
 class ConfirmPasswordResetView(APIView):
     """

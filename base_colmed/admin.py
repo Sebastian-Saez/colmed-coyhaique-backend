@@ -28,7 +28,8 @@ class LinkInteresAdmin(admin.ModelAdmin):
 
 @admin.register(ContactoInteres)
 class ContactoInteresAdmin(admin.ModelAdmin):
-    list_display = ('nombre','cargo','email','telefono','privado')
+    # list_display = ('nombre','cargo','email','telefono','privado')
+    list_display = ('nombre','cargo','telefono','privado')
     list_filter = ['privado']
 
 @admin.register(ConveniosConfig)

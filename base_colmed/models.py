@@ -165,7 +165,7 @@ class ContactoInteres(models.Model):
     nombre = models.CharField(max_length=255)
     cargo = models.CharField(max_length=255)
     telefono = models.CharField(max_length=20, blank=True, null=True)
-    # email = models.CharField(max_length=255, blank=True, null=True)
+    email = models.CharField(max_length=255, blank=True, null=True)
     direccion = models.CharField(max_length=255, blank=True, null=True)
     privado = models.BooleanField(default=False)
 

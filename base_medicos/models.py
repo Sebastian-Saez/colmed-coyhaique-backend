@@ -5,6 +5,7 @@ from django.contrib.auth.hashers import make_password
 import uuid
 from django.utils import timezone
 from datetime import timedelta
+from django.conf import settings
 
 TIPOS_ESTADO_PAGO  = [
     ('al_dia', 'AL DIA'),
@@ -155,6 +156,7 @@ class PasswordResetToken(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     used = models.BooleanField(default=False)
     
-    def is_expired(self, minutes=15):
-        """Expira 1 hora (puedes ajustar a tus necesidades)."""
-        return timezone.now() > self.created_at + timedelta(minutes=minutes)
+    def is_expired(self):
+        """Expira en 15 minutos por defecto, sino, según lo dado por PASSWORD_RESET_TOKEN_EXPIRY_MINUTES."""
+        expiry = getattr(settings, 'PASSWORD_RESET_TOKEN_EXPIRY_MINUTES', 15)
+        return timezone.now() > self.created_at + timedelta(minutes=expiry)

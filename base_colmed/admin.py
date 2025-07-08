@@ -23,8 +23,8 @@ class ConvenioAdmin(admin.ModelAdmin):
 
 @admin.register(LinkInteres)
 class LinkInteresAdmin(admin.ModelAdmin):
-    list_display = ('titulo','descripcion','url','orden', 'clave')
-    list_filter = ['orden']
+    list_display = ('titulo','descripcion','url','orden', 'clave','categoria')
+    list_filter = ['orden', 'categoria']
 
 @admin.register(ContactoInteres)
 class ContactoInteresAdmin(admin.ModelAdmin):

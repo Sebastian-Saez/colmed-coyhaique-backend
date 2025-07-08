@@ -147,8 +147,9 @@ class LugarDescuento(models.Model):
 class LinkInteres(models.Model):
     titulo = models.CharField(max_length=255)
     clave = models.CharField(max_length=30, blank=True, null=True)
+    categoria = models.CharField(max_length=30, blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)
-    url = models.URLField()
+    url = models.CharField(max_length=50, blank=True, null=True)
     orden = models.PositiveIntegerField(default=0)  # Para ordenarlos si es necesario
 
     class Meta:
@@ -164,7 +165,8 @@ class ContactoInteres(models.Model):
     nombre = models.CharField(max_length=255)
     cargo = models.CharField(max_length=255)
     telefono = models.CharField(max_length=20, blank=True, null=True)
-    email = models.EmailField()
+    email = models.CharField(max_length=255, blank=True, null=True)
+    direccion = models.CharField(max_length=255, blank=True, null=True)
     privado = models.BooleanField(default=False)
 
     class Meta:

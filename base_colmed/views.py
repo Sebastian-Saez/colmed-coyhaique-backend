@@ -23,7 +23,7 @@ from dj_rest_auth.serializers import JWTSerializer
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from backend_colmed.settings import GOOGLE_CLIENT_ID, EMAIL_HOST_USER, GOOGLE_CLIENT_IDS, FRONTEND_URL, DEFAULT_FROM_EMAIL
+from backend_colmed.settings import GOOGLE_CLIENT_ID, EMAIL_HOST_USER, GOOGLE_CLIENT_IDS, FRONTEND_URL, DEFAULT_FROM_EMAIL, PASSWORD_RESET_TOKEN_EXPIRY_MINUTES
 from base_colmed.authentication import CookieJWTAuthentication
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -94,14 +94,14 @@ class ContactoInteresViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def contactos_publicos(self, request):
         """Endpoint para obtener todas contactos publicos."""
-        contactos = ContactoInteres.objects.filter(privado=False)
+        contactos = ContactoInteres.objects.filter(privado=False).order_by('nombre')
         serializer = self.get_serializer(contactos, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def contactos_privados(self, request):
         """Endpoint para obtener todos los contactos privados"""
-        contactos = ContactoInteres.objects.filter(privado=True)
+        contactos = ContactoInteres.objects.filter(privado=True).order_by('nombre')
         serializer = self.get_serializer(contactos, many=True)
         return Response(serializer.data)
     
@@ -119,7 +119,21 @@ class LinkInteresViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def todos_links(self, request):
         """Endpoint para obtener todas contactos publicos."""
-        links = LinkInteres.objects.order_by('orden')
+        links = LinkInteres.objects.filter(categoria='links_movil').order_by('orden')
+        serializer = self.get_serializer(links, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def links_publicos(self, request):
+        """Endpoint para obtener todas contactos publicos."""
+        links = LinkInteres.objects.filter(categoria='links_web').order_by('orden')
+        serializer = self.get_serializer(links, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def links_privados(self, request):
+        """Endpoint para obtener todas contactos publicos."""
+        links = LinkInteres.objects.filter(categoria='links_movil').order_by('orden')[1:] 
         serializer = self.get_serializer(links, many=True)
         return Response(serializer.data)
     
@@ -442,13 +456,12 @@ class GoogleLogin(APIView):
                 GOOGLE_CLIENT_ID,
                 clock_skew_in_seconds=300  # tolerancia de 5 minutos
             )
-            print("idinfo " , idinfo)
+
             # 1️⃣ Valida el emisor
             if idinfo['iss'] not in ('accounts.google.com', 'https://accounts.google.com'):
                 return Response(
                     {"detail": "Invalid issuer"}, status=status.HTTP_401_UNAUTHORIZED
                 )  # Google exige este paso :contentReference[oaicite:8]{index=8}
-            print("\n\nPaso validación de emisor\n")
 
             if idinfo['aud'] != GOOGLE_CLIENT_ID:
                 return Response({"detail": "Invalid audience."}, status=status.HTTP_401_UNAUTHORIZED)
@@ -456,7 +469,7 @@ class GoogleLogin(APIView):
             # 3️⃣ Valida la caducidad
             if idinfo['exp'] < time.time():
                 return Response({"detail": "Token expired"}, status=status.HTTP_401_UNAUTHORIZED)
-            print("\n\nPaso validación de expiración\n\n")
+
             # Si la validación es exitosa, idinfo contendrá el email del usuario.
             email = idinfo.get('email')
             if not email:
@@ -916,7 +929,7 @@ class RequestPasswordResetView(APIView):
         
         # Construye el link: la idea es que el front reciba el token y muestre un form
         #reset_link = f"{FRONTEND_URL}/reset-password?token={reset_token.token}"
-        reset_link = f"{FRONTEND_URL}/#/colmed/confirm-pass-reset?token={reset_token.token}"
+        reset_link = f"{FRONTEND_URL}/#/colmed-app/confirm-pass-reset?token={reset_token.token}"
         #reset_link = f"http://localhost:8080/#/colmed/confirm-pass-reset?token={reset_token.token}"        
 
         text_content = (
@@ -967,7 +980,8 @@ class RequestPasswordResetView(APIView):
         text_content = (
             "Hola,\n\n"
             "Recibimos una solicitud para restablecer tu contraseña.\n\n"
-            f"Por favor visita el siguiente enlace para establecer una nueva contraseña:\n{reset_link}\n\n"
+            f"Este enlace estará activo durante {PASSWORD_RESET_TOKEN_EXPIRY_MINUTES} minutos.\n\n"
+            f"Por favor, visita el siguiente enlace para establecer una nueva contraseña:\n{reset_link}\n\n"
             "Si no solicitaste este cambio, ignora este mensaje.\n\n"
             "Saludos,\nEquipo de Colmed Aysén."
         )
@@ -975,7 +989,7 @@ class RequestPasswordResetView(APIView):
             <div style="font-family: Arial, sans-serif;">
               <p>Hola,</p>
               <p>Recibimos una solicitud para restablecer tu contraseña.</p>
-              <p>Haz clic en el siguiente enlace para establecer una nueva contraseña:</p>
+              <p>Haz clic en el siguiente enlace (válido por <b>{PASSWORD_RESET_TOKEN_EXPIRY_MINUTES} minutos</b>) para establecer una nueva contraseña :</p>
               <p>
                 <a href="{reset_link}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #ffffff; text-decoration: none; border-radius: 5px;">
                   Restablecer contraseña
@@ -1014,13 +1028,13 @@ class ConfirmPasswordResetView(APIView):
             reset_token = PasswordResetToken.objects.get(token=token_str, used=False)
         except PasswordResetToken.DoesNotExist:
             return Response(
-                {"detail": _("Token inválido o ya utilizado.")},
+                {"detail": _("Solicitud de restablecimiento es inválido o ya se usó; solicita uno nuevo desde la app.")},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         # Revisar expiración
         if reset_token.is_expired():
-            return Response({"detail": _("El enlace ha expirado. Por favor solicita un nuevo enlace de reseteo en 'Recuperar Contraseña'.")},
+            return Response({"detail": _("El enlace ha expirado.\n Por favor, solicita un nuevo enlace en la app para 'Recuperar Contraseña'.")},
                             status=status.HTTP_400_BAD_REQUEST)
 
         # Actualizar contraseña

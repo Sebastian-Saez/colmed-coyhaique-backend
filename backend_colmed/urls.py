@@ -18,12 +18,14 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from base_colmed.views import GoogleLogin, LogoutView, RefreshTokenView, GoogleLoginMobile, RegisterMedicoAppMovilView, LoginMedicoAppMovilView, RequestPasswordResetView, ConfirmPasswordResetView, ChangePasswordView
+from base_toolbar.views import SomosCreateUpdateAPIView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/colmed/', include('base_colmed.urls')),
     path('api/medicos/', include('base_medicos.urls')),
     path('api/noticias/', include('base_noticias.urls')),
+    path('api/toolbar/', include('base_toolbar.urls')),
     
 
     path('api/auth/google/', GoogleLogin.as_view(), name='google_login'),

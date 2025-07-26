@@ -253,3 +253,21 @@ EMAIL_USE_TLS   = True
 EMAIL_HOST_USER = "apikey"
 EMAIL_HOST_PASSWORD = os.getenv("SENDGRID_API_KEY")
 DEFAULT_FROM_EMAIL = os.getenv("EMAIL_FROM_USER")
+
+
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# EMAIL_HOST = "smtp.gmail.com"
+# EMAIL_USE_TLS = True
+# EMAIL_PORT = 587
+# EMAIL_HOST_USER = "ticsaysen@colegiomedico.cl"
+# EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
+
+# ALLOWED_HOSTS.append('10.0.2.2')
+# ALLOWED_HOSTS.append('192.168.1.23')
+# ALLOWED_HOSTS.append('172.22.85.193')
+# ALLOWED_HOSTS.append('172.22.80.1')
+# CORS_ALLOWED_ORIGINS.append('http://10.0.2.2:8001')
+# CORS_ALLOWED_ORIGINS.append('http://192.168.1.23:8001')
+# CORS_ALLOWED_ORIGINS.append('http://192.168.1.23:8080')
+# CORS_ALLOWED_ORIGINS.append('http://172.22.85.193:8080')
+# CORS_ALLOWED_ORIGINS.append('http://172.22.80.1:8080')

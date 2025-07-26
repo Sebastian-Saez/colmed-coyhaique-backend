@@ -5,6 +5,8 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 import json
 import time
+from jose import jwt
+from django.core.cache import cache
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.http import JsonResponse
@@ -12,11 +14,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
-from .models import Beneficio, Plaza, Evento, Perfil, PublicidadMedica, Convenio, ConveniosConfig, ContactoInteres,LinkInteres
+from .models import Beneficio, Plaza, Evento, Perfil, PublicidadMedica, Convenio, ConveniosConfig, ContactoInteres,LinkInteres, LinkAppColmedChile
 from base_medicos.models import Medico, MedicoAppMovil, PasswordResetToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .serializers import BeneficioSerializer, PlazaSerializer, EventoSerializer, PerfilSerializer, PublicidadMedicaSerializer, ConveniosConfigSerializer, ConvenioSerializer, ContactoInteresSerializer, LinkInteresSerializer
+from .serializers import BeneficioSerializer, PlazaSerializer, EventoSerializer, PerfilSerializer, PublicidadMedicaSerializer, ConveniosConfigSerializer, ConvenioSerializer, ContactoInteresSerializer, LinkInteresSerializer, LinkAppColmedChileSerializer
 from django.utils.translation import gettext_lazy as _
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from dj_rest_auth.serializers import JWTSerializer
@@ -32,8 +34,156 @@ from django.contrib.auth.hashers import make_password, check_password
 from .utils import send_push_notification
 from django.core.mail import EmailMultiAlternatives
 
+APPLE_ISSUER = "https://appleid.apple.com"
+APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
 
 
+def get_apple_public_keys():
+    keys = cache.get("apple_public_keys")
+    if not keys:
+        keys = requests.get(APPLE_KEYS_URL, timeout=5).json()["keys"]
+        cache.set("apple_public_keys", keys, 60 * 60 * 24)
+    return keys
+
+APPLE_AUDIENCES = {
+    "org.colmed.aysen.app",   # bundle id
+    "org.colmed.aysen.web",   # service id
+}
+
+class AppleLoginMobile(APIView):
+    """
+    Valida identity_token de Apple, comprueba usuario y devuelve JWT propios.
+    """
+
+    def post(self, request):
+        identity_token = request.data.get("identity_token")
+        fcm_token      = request.data.get("fcm_token")
+        email      = request.data.get("email")
+
+        if not identity_token:
+            return Response({"detail": "identity_token is required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # ------------------------------------------------------------------ #
+        # 1. Decodificar y verificar el JWT emitido por Apple
+        # ------------------------------------------------------------------ #
+        try:
+            # Apple publica varios 'kid'; selecciona la clave correcta
+            header = jwt.get_unverified_header(identity_token)
+            kid    = header["kid"]
+            key    = next(k for k in get_apple_public_keys() if k["kid"] == kid)
+
+            idinfo = jwt.decode(
+                identity_token,
+                key,
+                algorithms=["RS256"],
+                audience=None,     # lo haremos “a mano” ↓
+                issuer=APPLE_ISSUER,
+            )
+        except Exception:
+            return Response({"detail": "Invalid identity_token."},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+        # 1️⃣ Valida issuer (la librería ya comprueba, pero añadimos respuesta clara)
+        if idinfo.get("iss") != APPLE_ISSUER:
+            return Response({"detail": "Invalid issuer."},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+        # 2️⃣ Valida audiencia
+        if idinfo.get("aud") not in APPLE_AUDIENCES:
+            return Response({"detail": "Invalid audience."},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+        # 3️⃣ Valida expiración
+        if idinfo.get("exp", 0) < time.time():
+            return Response({"detail": "Token expired."},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+        # 4️⃣ Extrae datos
+        email  = idinfo.get("email")      # puede venir vacío en logins futuros :contentReference[oaicite:0]{index=0}
+        user_sub = idinfo["sub"]          # id único por app+cuenta
+
+        # ------------------------------------------------------------------ #
+        # 2. Buscar/registrar en tu modelo MedicoAppMovil
+        # ------------------------------------------------------------------ #
+        medico_app_movil = None
+        user = None
+
+        # a) buscar por email (si viene) o por sub
+        from base_medicos.models import Medico, MedicoAppMovil
+        from django.contrib.auth.models import User
+
+        if email:
+            medico_app_movil = MedicoAppMovil.objects.filter(email=email).first()
+        if not medico_app_movil:
+            medico_app_movil = MedicoAppMovil.objects.filter(apple_sub=user_sub).first()
+
+        if medico_app_movil:
+            user = medico_app_movil.medico.user if medico_app_movil.medico else None
+        else:
+            # b) no existe registro => intentar con User por email
+            if email:
+                user = User.objects.filter(email=email).first()
+            if user:
+                # primer login móvil → crear MedicoAppMovil
+                medico = Medico.objects.filter(user=user).first()
+                if medico:
+                    medico_app_movil = MedicoAppMovil.objects.create(
+                        medico=medico,
+                        email=email,
+                        apple_sub=user_sub,
+                        contraseña="",  # vacío (login social)
+                        cuenta_activa=True
+                    )
+
+        # c) no encontrado
+        if not medico_app_movil or not user:
+            return Response(
+                {"detail": "Email no registrado en Colmed Aysén. Solicite registro."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # ------------------------------------------------------------------ #
+        # 3. Actualizar FCM token (si viene)
+        # ------------------------------------------------------------------ #
+        if fcm_token:
+            medico_app_movil.fcm_token = fcm_token
+            medico_app_movil.save(update_fields=["fcm_token"])
+
+        # ------------------------------------------------------------------ #
+        # 4. Generar JWT propios y respuesta
+        # ------------------------------------------------------------------ #
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from base_colmed.models import Perfil
+        from base_colmed.serializers import PerfilSerializer
+
+        perfiles = Perfil.objects.filter(user=user)
+        perfiles_data = PerfilSerializer(perfiles, many=True).data
+
+        refresh = RefreshToken.for_user(user)
+        response = Response({
+            "user": {
+                "id":       user.id,
+                "username": user.username,
+                "email":    user.email or email,
+                "apple_sub": user_sub,
+                "perfiles": perfiles_data,
+                "is_private_relay": email and email.endswith("@privaterelay.appleid.com")
+            }
+        })
+
+        secure_cookie = not settings.DEBUG
+        response.set_cookie(
+            "access_token",  str(refresh.access_token),
+            httponly=True, secure=secure_cookie, samesite="None",
+            max_age=60*2, path="/"
+        )
+        response.set_cookie(
+            "refresh_token", str(refresh),
+            httponly=True, secure=secure_cookie, samesite="None",
+            max_age=60*60*24*7, path="/"
+        )
+        return response
 
 class BeneficioViewSet(viewsets.ModelViewSet):
     queryset = Beneficio.objects.all()
@@ -67,6 +217,24 @@ class EventoViewSet(viewsets.ModelViewSet):
         """Endpoint para obtener todos los eventos."""
         eventos = Evento.objects.all().order_by('-fecha_inicio').exclude(activo=False)
         serializer = self.get_serializer(eventos, many=True)
+        return Response(serializer.data)
+    
+class LinkAppColmedChileViewSet(viewsets.ModelViewSet):
+    queryset = LinkAppColmedChile.objects.all()
+    serializer_class = LinkAppColmedChileSerializer
+
+    @action(detail=False, methods=['get'])
+    def link_apple(self, request):
+        """Endpoint para obtener link de aplicación Colmed Apple."""
+        link_apple = LinkAppColmedChile.objects.get(dispositivo='apple')
+        serializer = self.get_serializer(link_apple)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def link_android(self, request):
+        """Endpoint para obtener link de aplicación Colmed Android."""
+        link_android = LinkAppColmedChile.objects.get(dispositivo='android')        
+        serializer = self.get_serializer(link_android)
         return Response(serializer.data)
     
 class PublicidadMedicaViewSet(viewsets.ModelViewSet):
@@ -103,6 +271,13 @@ class ContactoInteresViewSet(viewsets.ModelViewSet):
         """Endpoint para obtener todos los contactos privados"""
         contactos = ContactoInteres.objects.filter(privado=True).order_by('nombre')
         serializer = self.get_serializer(contactos, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def contacto_soporte(self, request):
+        """Endpoint para obtener contacto de soporte"""
+        contactos = ContactoInteres.objects.filter(privado=True, cargo='soporte').first()
+        serializer = self.get_serializer(contactos, many=False)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
@@ -626,7 +801,8 @@ class GoogleLoginMobile(APIView):
                     medico_app_movil = MedicoAppMovil.objects.create(
                         medico=medico,
                         email=email,
-                        contraseña=""  # Contraseña vacía porque usó Google Login
+                        contraseña="",  # Contraseña vacía porque usó Google Login
+                        cuenta_activa=True
                     )
             except User.DoesNotExist:
                 user = None
@@ -772,7 +948,8 @@ class RegisterMedicoAppMovilView(APIView):
             medico_app = MedicoAppMovil.objects.create(
                 medico=medico_obj,
                 email=email,
-                contraseña=""  # Se inicializa vacío; luego se setea mediante set_password
+                contraseña="",  # Se inicializa vacío; luego se setea mediante set_password
+                cuenta_activa=True
             )
             medico_app.set_password(password)
             medico_app.save()
@@ -780,6 +957,28 @@ class RegisterMedicoAppMovilView(APIView):
                 {"detail": "Registro creado exitosamente."},
                 status=status.HTTP_201_CREATED
             )
+
+class DeleteMedicoAppMovilView(APIView):
+
+    def post (self, request):
+        icm = request.data.get('icm')
+
+        if not icm:
+            return Response({"detail": "ICM requerido."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # medico = Medico.objects.get(icm=icm)
+            medico_app_movil = MedicoAppMovil.objects.get(medico__icm=icm)
+        except MedicoAppMovil.DoesNotExist:
+            return Response({"detail": "Credenciales inválidas."},
+                            status=status.HTTP_401_UNAUTHORIZED)
+        
+        medico_app_movil.cuenta_activa = False
+        medico_app_movil.save()
+        response = Response(status=status.HTTP_200_OK)
+
+        return response
+
 
 class LoginMedicoAppMovilView(APIView):
     """
@@ -1164,3 +1363,105 @@ class LogoutView(APIView):
             return Response({"detail": "Logout successful"}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"detail": "Error during logout"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+# def _authenticate_or_register_mobile_user(email, fcm_token=None):
+#     """
+#     Busca un usuario por email en MedicoAppMovil o User.
+#     Si no existe, retorna un error.
+#     Si existe, actualiza su fcm_token y retorna el objeto 'user'.
+#     """
+#     medico_app_movil = MedicoAppMovil.objects.filter(email=email).first()
+#     user = None
+
+#     if medico_app_movil:
+#         user = medico_app_movil.medico.user if medico_app_movil.medico else None
+#     else:
+#         try:
+#             user = User.objects.get(email=email)
+#             medico = Medico.objects.filter(user=user).first()
+#             if medico:
+#                 medico_app_movil = MedicoAppMovil.objects.create(
+#                     medico=medico,
+#                     email=email,
+#                     contraseña=""
+#                 )
+#         except User.DoesNotExist:
+#             pass
+
+#     if not user:
+#         return None, {"detail": "Email no registrado en Colmed Aysén. Por favor, provea su ICM para registro en la App."}, status.HTTP_403_FORBIDDEN
+    
+#     if medico_app_movil and fcm_token:
+#         medico_app_movil.fcm_token = fcm_token
+#         medico_app_movil.save()
+        
+#     return user, None, None
+
+
+# class AppleLoginMobile(APIView):
+#     """
+#     Recibe un identity_token de Apple, lo valida y aplica la lógica de login/registro.
+#     """
+#     def post(self, request):
+#         identity_token = request.data.get('identity_token')
+
+#         if not identity_token:
+#             return Response({"detail": "identity_token is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+#         try:
+#             # 1. 🔑 Obtener la clave pública de Apple para verificar la firma
+#             # Apple expone sus claves en formato JWKS (JSON Web Key Set)
+#             jwks_url = "https://appleid.apple.com/auth/keys"
+#             jwks_client = jwt.PyJWKClient(jwks_url)
+#             signing_key = jwks_client.get_signing_key_from_jwt(identity_token)
+
+#             # 2. Decodificar y validar el token
+#             decoded_token = jwt.decode(
+#                 identity_token,
+#                 signing_key.key,
+#                 algorithms=["RS256"],
+#                 audience=settings.APPLE_CLIENT_ID, # Tu Client ID de Apple (Bundle ID)
+#                 issuer="https://appleid.apple.com",
+#             )
+            
+#             email = decoded_token.get('email')
+#             if not email:
+#                 return Response({"detail": "Token inválido: no se encontró el email."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         except jwt.ExpiredSignatureError:
+#             return Response({"detail": "Token expired."}, status=status.HTTP_401_UNAUTHORIZED)
+#         except jwt.InvalidAudienceError:
+#             return Response({"detail": "Invalid audience."}, status=status.HTTP_401_UNAUTHORIZED)
+#         except jwt.InvalidIssuerError:
+#             return Response({"detail": "Invalid issuer."}, status=status.HTTP_401_UNAUTHORIZED)
+#         except Exception as e:
+#             # Captura otras excepciones de JWT o de la petición de claves
+#             return Response({"detail": f"Invalid token: {str(e)}"}, status=status.HTTP_401_UNAUTHORIZED)
+
+#         # 3. 🔄 Usar la lógica refactorizada
+#         fcm_token = request.data.get('fcm_token', None)
+#         user, error_response, error_status = _authenticate_or_register_mobile_user(email, fcm_token)
+
+#         if error_response:
+#             return Response(error_response, status=error_status)
+
+#         # 4. Generar tokens y respuesta (lógica idéntica a GoogleLoginMobile)
+#         perfiles = Perfil.objects.filter(user=user)
+#         perfiles_data = PerfilSerializer(perfiles, many=True).data
+#         refresh = RefreshToken.for_user(user)
+#         # ... resto de la generación de respuesta y cookies ...
+        
+#         response_data = {
+#             "user": {
+#                 "id": user.id,
+#                 "username": user.username,
+#                 "email": user.email,
+#                 "perfiles": perfiles_data,
+#                 # Puedes agregar otros campos del token de Apple si los necesitas
+#             }
+#         }
+#         response = Response(response_data, status=status.HTTP_200_OK)
+#         # ... set cookies ...
+#         return response

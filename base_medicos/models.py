@@ -138,10 +138,13 @@ class Cuota(models.Model):
 #Manejo de usuarios en App móvil
 class MedicoAppMovil(models.Model):
     medico = models.ForeignKey(Medico, on_delete=models.CASCADE)
-    fecha_inscripcion = models.DateTimeField(auto_now=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    fecha_inscripcion = models.DateTimeField(auto_now_add=True)
     contraseña = models.CharField(max_length=200)
     email = models.CharField(max_length=200, blank=True, null=True)
     fcm_token = models.CharField(max_length=200, blank=True, null=True, default="")
+    apple_sub = models.CharField(max_length=255,unique=True,null=True,blank=True,db_index=True,help_text="Identificador 'sub' de Sign in with Apple")
+    cuenta_activa = models.BooleanField(default=False)
 
     def set_password(self, raw_password):
         self.contraseña = make_password(raw_password)

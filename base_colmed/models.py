@@ -162,8 +162,8 @@ class LinkInteres(models.Model):
 
 
 class ContactoInteres(models.Model):
-    nombre = models.CharField(max_length=255)
-    cargo = models.CharField(max_length=255)
+    nombre = models.CharField(max_length=255, blank=True, null=True)
+    cargo = models.CharField(max_length=255, blank=True, null=True)
     telefono = models.CharField(max_length=20, blank=True, null=True)
     email = models.CharField(max_length=255, blank=True, null=True)
     direccion = models.CharField(max_length=255, blank=True, null=True)
@@ -175,3 +175,14 @@ class ContactoInteres(models.Model):
 
     def __str__(self):
         return self.nombre
+    
+class LinkAppColmedChile(models.Model):    
+    dispositivo = models.CharField(max_length=255, blank=True, null=True)
+    link  = models.CharField(max_length=500, blank=True, null=True)    
+
+    class Meta:
+        verbose_name = "Link App Colmed Chile"
+        verbose_name_plural = "Links App Colmed Chile"
+
+    def __str__(self):
+        return self.dispositivo

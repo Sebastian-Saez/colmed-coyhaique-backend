@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from base_colmed.views import GoogleLogin, LogoutView, RefreshTokenView, GoogleLoginMobile, RegisterMedicoAppMovilView, LoginMedicoAppMovilView, RequestPasswordResetView, ConfirmPasswordResetView, ChangePasswordView
+from base_colmed.views import GoogleLogin, LogoutView, RefreshTokenView, GoogleLoginMobile, RegisterMedicoAppMovilView, LoginMedicoAppMovilView, RequestPasswordResetView, ConfirmPasswordResetView, ChangePasswordView, DeleteMedicoAppMovilView
 from base_toolbar.views import SomosCreateUpdateAPIView
 
 urlpatterns = [
@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/auth/google/', GoogleLogin.as_view(), name='google_login'),
     #endpoints para aplicación movil
     path('api/app/login/', LoginMedicoAppMovilView.as_view(), name='login-app'),
+    path('api/app/delete-account/', DeleteMedicoAppMovilView.as_view(), name='delete-account'),
     path('api/app/register/', RegisterMedicoAppMovilView.as_view(), name='register-app'),
     path('api/app/login-google/', GoogleLoginMobile.as_view(), name='login-google-app'),
     path('api/app/confirm-pass-reset/', ConfirmPasswordResetView.as_view(), name='confirm-pass-reset'),

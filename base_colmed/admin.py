@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Perfil, Beneficio, Plaza, Evento, Estamento, Entidad, LugarDescuento, PublicidadMedica, Convenio, ConveniosConfig, ContactoInteres, LinkInteres
+from .models import Perfil, Beneficio, Plaza, Evento, Estamento, Entidad, LugarDescuento, PublicidadMedica, Convenio, ConveniosConfig, ContactoInteres, LinkInteres, LinkAppColmedChile
 
 @admin.register(Perfil)
 class PerfilAdmin(admin.ModelAdmin):
@@ -30,6 +30,11 @@ class LinkInteresAdmin(admin.ModelAdmin):
 class ContactoInteresAdmin(admin.ModelAdmin):
     list_display = ('nombre','cargo','email','telefono','privado')
     list_filter = ['privado']
+
+@admin.register(LinkAppColmedChile)
+class LinkAppColmedChileAdmin(admin.ModelAdmin):
+    list_display = ('dispositivo','link')
+    list_filter = ['dispositivo']
 
 @admin.register(ConveniosConfig)
 class ConveniosConfigAdmin(admin.ModelAdmin):

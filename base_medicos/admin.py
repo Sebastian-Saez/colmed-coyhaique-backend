@@ -28,8 +28,8 @@ class MedicoAdmin(admin.ModelAdmin):
 
 @admin.register(MedicoAppMovil)
 class MedicoAppMovilAdmin(admin.ModelAdmin):
-    list_display = ('user_first_name','user_last_name','user_email','email','fecha_inscripcion','fcm_token')
-    list_filter = ['email', 'fecha_inscripcion']
+    list_display = ('user_first_name','user_last_name','user_email','email','fecha_inscripcion','fcm_token','cuenta_activa')
+    list_filter = ['email', 'fecha_inscripcion', 'cuenta_activa']
 
     def user_first_name(self, obj):
         return obj.medico.user.first_name if obj.medico else None

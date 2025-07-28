@@ -58,7 +58,7 @@ class AppleLoginMobile(APIView):
     def post(self, request):
         identity_token = request.data.get("id_token")
         fcm_token      = request.data.get("fcm_token")
-        email      = request.data.get("email")
+        email_req      = request.data.get("email")
 
         if not identity_token:
             return Response({"detail": "identity_token is required."},
@@ -100,9 +100,12 @@ class AppleLoginMobile(APIView):
                             status=status.HTTP_401_UNAUTHORIZED)
 
         # 4️⃣ Extrae datos
-        email  = idinfo.get("email")      # puede venir vacío en logins futuros :contentReference[oaicite:0]{index=0}
+        decoded_email  = idinfo.get("email")      # puede venir vacío en logins futuros :contentReference[oaicite:0]{index=0}
         user_sub = idinfo["sub"]          # id único por app+cuenta
 
+
+        # ⚠️  Escoge el correo “efectivo”:
+        email = email_req or decoded_email             # prioridad al correo del request
         # ------------------------------------------------------------------ #
         # 2. Buscar/registrar en tu modelo MedicoAppMovil
         # ------------------------------------------------------------------ #

@@ -56,7 +56,7 @@ class AppleLoginMobile(APIView):
     """
 
     def post(self, request):
-        identity_token = request.data.get("identity_token")
+        identity_token = request.data.get("id_token")
         fcm_token      = request.data.get("fcm_token")
         email      = request.data.get("email")
 

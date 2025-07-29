@@ -5,9 +5,14 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 import json
 import time
-from jose import jwt
+# from jose import jwt
+import requests
+import jwt
 from jwt.algorithms import RSAAlgorithm
-from jwt import PyJWTError
+from jwt import (
+    InvalidAudienceError, InvalidIssuerError,
+    ExpiredSignatureError, PyJWTError
+)
 from django.core.cache import cache
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -25,7 +30,8 @@ from django.utils.translation import gettext_lazy as _
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from dj_rest_auth.serializers import JWTSerializer
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
-from google.auth.transport import requests
+# from google.auth.transport import requests
+from google.auth.transport import requests as google_request
 from google.oauth2 import id_token
 from backend_colmed.settings import GOOGLE_CLIENT_ID, EMAIL_HOST_USER, GOOGLE_CLIENT_IDS, FRONTEND_URL, DEFAULT_FROM_EMAIL, PASSWORD_RESET_TOKEN_EXPIRY_MINUTES
 from base_colmed.authentication import CookieJWTAuthentication
@@ -33,13 +39,13 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
 from django.contrib.auth.hashers import make_password, check_password
-from .utils import send_push_notification
+from .utils import send_push_notification, get_signing_key,APPLE_AUDIENCE,APPLE_ISSUER
 from django.core.mail import EmailMultiAlternatives
 
-APPLE_ISSUER = "https://appleid.apple.com"
-APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
-CACHE_KEY      = "apple_public_keys"
-CACHE_TTL_S    = 60 * 60          # 1 h
+# APPLE_ISSUER = "https://appleid.apple.com"
+# APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
+# CACHE_KEY      = "apple_public_keys"
+# CACHE_TTL_S    = 60 * 60          # 1 h
 
 # def get_apple_public_keys():
 #     keys = cache.get("apple_public_keys")
@@ -60,33 +66,33 @@ CACHE_TTL_S    = 60 * 60          # 1 h
 #     "org.colmed.aysen.app",   # bundle id
 #     "org.colmed.aysen.web",   # service id
 # }
-APPLE_AUDIENCES = ("org.colmed.aysen.app","org.colmed.aysen.web")
+# APPLE_AUDIENCES = ("org.colmed.aysen.app","org.colmed.aysen.web")
 
 
-def get_apple_key(kid: str):
-    """
-    Devuelve la clave pública (RSAAlgorithm) para un 'kid'.
-    1. Busca en caché.
-    2. Si no está o no coincide el 'kid', refresca desde Apple.
-    """
-    keys = cache.get(CACHE_KEY)
+# def get_apple_key(kid: str):
+#     """
+#     Devuelve la clave pública (RSAAlgorithm) para un 'kid'.
+#     1. Busca en caché.
+#     2. Si no está o no coincide el 'kid', refresca desde Apple.
+#     """
+#     keys = cache.get(CACHE_KEY)
 
-    key_data = next((k for k in (keys or []) if k["kid"] == kid), None)
-    if not key_data:
-        # Refrescar JWKS
-        try:
-            resp = requests.get(APPLE_KEYS_URL, timeout=5)
-            resp.raise_for_status()
-            keys = resp.json()["keys"]
-            cache.set(CACHE_KEY, keys, CACHE_TTL_S)
-        except requests.RequestException as exc:
-            raise PyJWTError("No se pudo descargar las claves públicas de Apple.") from exc
+#     key_data = next((k for k in (keys or []) if k["kid"] == kid), None)
+#     if not key_data:
+#         # Refrescar JWKS
+#         try:
+#             resp = requests.get(APPLE_KEYS_URL, timeout=5)
+#             resp.raise_for_status()
+#             keys = resp.json()["keys"]
+#             cache.set(CACHE_KEY, keys, CACHE_TTL_S)
+#         except requests.RequestException as exc:
+#             raise PyJWTError("No se pudo descargar las claves públicas de Apple.") from exc
 
-        key_data = next((k for k in keys if k["kid"] == kid), None)
-        if not key_data:
-            raise PyJWTError(f"kid '{kid}' inexistente en JWKS de Apple.")
+#         key_data = next((k for k in keys if k["kid"] == kid), None)
+#         if not key_data:
+#             raise PyJWTError(f"kid '{kid}' inexistente en JWKS de Apple.")
 
-    return RSAAlgorithm.from_jwk(json.dumps(key_data))
+#     return RSAAlgorithm.from_jwk(json.dumps(key_data))
 
 class AppleLoginMobile(APIView):
     """
@@ -105,61 +111,84 @@ class AppleLoginMobile(APIView):
         # ------------------------------------------------------------------ #
         # 1. Decodificar y verificar el JWT emitido por Apple
         # ------------------------------------------------------------------ #
+
         try:
-            # Apple publica varios 'kid'; selecciona la clave correcta
-            # header = jwt.get_unverified_header(identity_token)
-            # kid    = header["kid"]
-            # key    = next(k for k in get_apple_public_keys() if k["kid"] == kid)
-
-            # header = jwt.get_unverified_header(identity_token)
-            # public_key = get_apple_key(header["kid"])
-
-            # idinfo = jwt.decode(
-            #     identity_token,
-            #     key,
-            #     algorithms=["RS256"],
-            #     audience=None,     # lo haremos “a mano” ↓
-            #     issuer=APPLE_ISSUER,
-            # )
-            # idinfo = jwt.decode(
-            #     identity_token,
-            #     public_key,
-            #     algorithms=["RS256"],
-            #     issuer="https://appleid.apple.com",   # tu APPLE_ISSUER
-            #     audience=APPLE_AUDIENCES,             # {'org.colmed.aysen.app', 'org.colmed.aysen.web'}
-            #     options={"require": ["exp", "iat", "sub"], "leeway": 30}
-            # )
-
-            header = jwt.get_unverified_header(identity_token)
-            public_key = get_apple_key(header["kid"])
-
+            key = get_signing_key(identity_token)
             idinfo = jwt.decode(
                 identity_token,
-                public_key,
+                key,
                 algorithms=["RS256"],
                 issuer=APPLE_ISSUER,
-                audience=APPLE_AUDIENCES,          
+                audience=APPLE_AUDIENCE,
+                leeway=30,
                 options={"require": ["exp", "iat", "sub"]},
-                leeway=30                          # parámetro propio, no dentro de options
             )
-        except Exception:
-            return Response({"detail": "Invalid identity_token."},
-                            status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.PyJWTError as exc:
+            return Response({"detail": str(exc)}, status=401)
 
-        # 1️⃣ Valida issuer (la librería ya comprueba, pero añadimos respuesta clara)
-        if idinfo.get("iss") != APPLE_ISSUER:
-            return Response({"detail": "Invalid issuer."},
-                            status=status.HTTP_401_UNAUTHORIZED)
+        # try:
+        #     # Apple publica varios 'kid'; selecciona la clave correcta
+        #     # header = jwt.get_unverified_header(identity_token)
+        #     # kid    = header["kid"]
+        #     # key    = next(k for k in get_apple_public_keys() if k["kid"] == kid)
 
-        # 2️⃣ Valida audiencia
-        if idinfo.get("aud") not in APPLE_AUDIENCES:
-            return Response({"detail": "Invalid audience."},
-                            status=status.HTTP_401_UNAUTHORIZED)
+        #     # header = jwt.get_unverified_header(identity_token)
+        #     # public_key = get_apple_key(header["kid"])
 
-        # 3️⃣ Valida expiración
-        if idinfo.get("exp", 0) < time.time():
-            return Response({"detail": "Token expired."},
-                            status=status.HTTP_401_UNAUTHORIZED)
+        #     # idinfo = jwt.decode(
+        #     #     identity_token,
+        #     #     key,
+        #     #     algorithms=["RS256"],
+        #     #     audience=None,     # lo haremos “a mano” ↓
+        #     #     issuer=APPLE_ISSUER,
+        #     # )
+        #     # idinfo = jwt.decode(
+        #     #     identity_token,
+        #     #     public_key,
+        #     #     algorithms=["RS256"],
+        #     #     issuer="https://appleid.apple.com",   # tu APPLE_ISSUER
+        #     #     audience=APPLE_AUDIENCES,             # {'org.colmed.aysen.app', 'org.colmed.aysen.web'}
+        #     #     options={"require": ["exp", "iat", "sub"], "leeway": 30}
+        #     # )
+
+        #     header = jwt.get_unverified_header(identity_token)
+        #     public_key = get_apple_key(header["kid"])
+
+        #     idinfo = jwt.decode(
+        #         identity_token,
+        #         public_key,
+        #         algorithms=["RS256"],
+        #         issuer=APPLE_ISSUER,
+        #         audience=APPLE_AUDIENCES,          
+        #         options={"require": ["exp", "iat", "sub"]},
+        #         leeway=30                          # parámetro propio, no dentro de options
+        #     )
+        # # except Exception:
+        # #     return Response({"detail": "Invalid identity_token."},
+        # #                     status=status.HTTP_401_UNAUTHORIZED)
+        # except InvalidAudienceError:
+        #     return Response({"detail": "Invalid audience."}, status=401)
+        # except InvalidIssuerError:
+        #     return Response({"detail": "Invalid issuer."}, status=401)
+        # except ExpiredSignatureError:
+        #     return Response({"detail": "Token expired."}, status=401)
+        # except PyJWTError as exc:
+        #     return Response({"detail": str(exc)}, status=401)
+
+        # # 1️⃣ Valida issuer (la librería ya comprueba, pero añadimos respuesta clara)
+        # if idinfo.get("iss") != APPLE_ISSUER:
+        #     return Response({"detail": "Invalid issuer."},
+        #                     status=status.HTTP_401_UNAUTHORIZED)
+
+        # # 2️⃣ Valida audiencia
+        # if idinfo.get("aud") not in APPLE_AUDIENCES:
+        #     return Response({"detail": "Invalid audience."},
+        #                     status=status.HTTP_401_UNAUTHORIZED)
+
+        # # 3️⃣ Valida expiración
+        # if idinfo.get("exp", 0) < time.time():
+        #     return Response({"detail": "Token expired."},
+        #                     status=status.HTTP_401_UNAUTHORIZED)
 
         # 4️⃣ Extrae datos
         decoded_email  = idinfo.get("email")      # puede venir vacío en logins futuros :contentReference[oaicite:0]{index=0}
@@ -692,7 +721,7 @@ class GoogleLogin(APIView):
         try:
             idinfo = id_token.verify_oauth2_token(
                 id_token_google,
-                requests.Request(),
+                google_request.Request(),
                 GOOGLE_CLIENT_ID,
                 clock_skew_in_seconds=300  # tolerancia de 5 minutos
             )
@@ -806,7 +835,7 @@ class GoogleLoginMobile(APIView):
         try:
             idinfo = id_token.verify_oauth2_token(
                 id_token_google,
-                requests.Request(),
+                google_request.Request(),
                 audience=None,
                 clock_skew_in_seconds=300  # tolerancia de 5 minutos
             )

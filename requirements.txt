@@ -33,7 +33,7 @@ pillow==11.0.0
 prompt_toolkit==3.0.45
 psycopg2-binary==2.9.9
 pydot==2.0.0
-PyJWT==2.9.0
+PyJWT==2.10.1
 pyparsing==3.1.2
 PySocks==1.7.1
 python-dateutil==2.9.0.post0

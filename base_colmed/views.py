@@ -5,14 +5,8 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 import json
 import time
-# from jose import jwt
-import requests
 import jwt
-from jwt.algorithms import RSAAlgorithm
-from jwt import (
-    InvalidAudienceError, InvalidIssuerError,
-    ExpiredSignatureError, PyJWTError
-)
+import requests
 from django.core.cache import cache
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -39,7 +33,8 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
 from django.contrib.auth.hashers import make_password, check_password
-from .utils import send_push_notification, get_signing_key,APPLE_AUDIENCE,APPLE_ISSUER
+from .utils import send_push_notification
+from .utils_apple import get_signing_key, APPLE_AUDIENCE, APPLE_ISSUER
 from django.core.mail import EmailMultiAlternatives
 
 # APPLE_ISSUER = "https://appleid.apple.com"
@@ -265,7 +260,7 @@ class AppleLoginMobile(APIView):
                 "is_private_relay": email and email.endswith("@privaterelay.appleid.com")
             }
         })
-
+        from django.conf import settings
         secure_cookie = not settings.DEBUG
         response.set_cookie(
             "access_token",  str(refresh.access_token),

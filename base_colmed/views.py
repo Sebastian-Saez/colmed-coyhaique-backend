@@ -7,6 +7,7 @@ import json
 import time
 from jose import jwt
 from jwt.algorithms import RSAAlgorithm
+from jwt import PyJWTError
 from django.core.cache import cache
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -40,25 +41,52 @@ APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
 CACHE_KEY      = "apple_public_keys"
 CACHE_TTL_S    = 60 * 60          # 1 h
 
-def get_apple_public_keys():
-    keys = cache.get("apple_public_keys")
-    if not keys:
-        keys = requests.get(APPLE_KEYS_URL, timeout=5).json()["keys"]
-        cache.set("apple_public_keys", keys, 60 * 60 * 24)
-    return keys
+# def get_apple_public_keys():
+#     keys = cache.get("apple_public_keys")
+#     if not keys:
+#         keys = requests.get(APPLE_KEYS_URL, timeout=5).json()["keys"]
+#         cache.set("apple_public_keys", keys, 60 * 60 * 24)
+#     return keys
+
+# def get_apple_key(kid: str):
+#     keys = cache.get(CACHE_KEY)
+#     if not keys or kid not in {k["kid"] for k in keys}:
+#         keys = requests.get(APPLE_KEYS_URL, timeout=5).json()["keys"]  # 🔄
+#         cache.set(CACHE_KEY, keys, CACHE_TTL_S)
+#     jwk = next(k for k in keys if k["kid"] == kid)
+#     return RSAAlgorithm.from_jwk(json.dumps(jwk)) 
+
+# APPLE_AUDIENCES = {
+#     "org.colmed.aysen.app",   # bundle id
+#     "org.colmed.aysen.web",   # service id
+# }
+APPLE_AUDIENCES = ("org.colmed.aysen.app","org.colmed.aysen.web")
+
 
 def get_apple_key(kid: str):
+    """
+    Devuelve la clave pública (RSAAlgorithm) para un 'kid'.
+    1. Busca en caché.
+    2. Si no está o no coincide el 'kid', refresca desde Apple.
+    """
     keys = cache.get(CACHE_KEY)
-    if not keys or kid not in {k["kid"] for k in keys}:
-        keys = requests.get(APPLE_KEYS_URL, timeout=5).json()["keys"]  # 🔄
-        cache.set(CACHE_KEY, keys, CACHE_TTL_S)
-    jwk = next(k for k in keys if k["kid"] == kid)
-    return RSAAlgorithm.from_jwk(json.dumps(jwk)) 
 
-APPLE_AUDIENCES = {
-    "org.colmed.aysen.app",   # bundle id
-    "org.colmed.aysen.web",   # service id
-}
+    key_data = next((k for k in (keys or []) if k["kid"] == kid), None)
+    if not key_data:
+        # Refrescar JWKS
+        try:
+            resp = requests.get(APPLE_KEYS_URL, timeout=5)
+            resp.raise_for_status()
+            keys = resp.json()["keys"]
+            cache.set(CACHE_KEY, keys, CACHE_TTL_S)
+        except requests.RequestException as exc:
+            raise PyJWTError("No se pudo descargar las claves públicas de Apple.") from exc
+
+        key_data = next((k for k in keys if k["kid"] == kid), None)
+        if not key_data:
+            raise PyJWTError(f"kid '{kid}' inexistente en JWKS de Apple.")
+
+    return RSAAlgorithm.from_jwk(json.dumps(key_data))
 
 class AppleLoginMobile(APIView):
     """
@@ -83,8 +111,8 @@ class AppleLoginMobile(APIView):
             # kid    = header["kid"]
             # key    = next(k for k in get_apple_public_keys() if k["kid"] == kid)
 
-            header = jwt.get_unverified_header(identity_token)
-            public_key = get_apple_key(header["kid"])
+            # header = jwt.get_unverified_header(identity_token)
+            # public_key = get_apple_key(header["kid"])
 
             # idinfo = jwt.decode(
             #     identity_token,
@@ -93,13 +121,26 @@ class AppleLoginMobile(APIView):
             #     audience=None,     # lo haremos “a mano” ↓
             #     issuer=APPLE_ISSUER,
             # )
+            # idinfo = jwt.decode(
+            #     identity_token,
+            #     public_key,
+            #     algorithms=["RS256"],
+            #     issuer="https://appleid.apple.com",   # tu APPLE_ISSUER
+            #     audience=APPLE_AUDIENCES,             # {'org.colmed.aysen.app', 'org.colmed.aysen.web'}
+            #     options={"require": ["exp", "iat", "sub"], "leeway": 30}
+            # )
+
+            header = jwt.get_unverified_header(identity_token)
+            public_key = get_apple_key(header["kid"])
+
             idinfo = jwt.decode(
                 identity_token,
                 public_key,
                 algorithms=["RS256"],
-                issuer="https://appleid.apple.com",   # tu APPLE_ISSUER
-                audience=APPLE_AUDIENCES,             # {'org.colmed.aysen.app', 'org.colmed.aysen.web'}
-                options={"require": ["exp", "iat", "sub"], "leeway": 30}
+                issuer=APPLE_ISSUER,
+                audience=APPLE_AUDIENCES,          
+                options={"require": ["exp", "iat", "sub"]},
+                leeway=30                          # parámetro propio, no dentro de options
             )
         except Exception:
             return Response({"detail": "Invalid identity_token."},

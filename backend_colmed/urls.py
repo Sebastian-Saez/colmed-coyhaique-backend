@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from base_colmed.views import GoogleLogin, LogoutView, RefreshTokenView, GoogleLoginMobile, RegisterMedicoAppMovilView, LoginMedicoAppMovilView, RequestPasswordResetView, ConfirmPasswordResetView, ChangePasswordView, DeleteMedicoAppMovilView
+from base_colmed.views import GoogleLogin, LogoutView, RefreshTokenView, GoogleLoginMobile, RegisterMedicoAppMovilView, LoginMedicoAppMovilView, RequestPasswordResetView, ConfirmPasswordResetView, ChangePasswordView, DeleteMedicoAppMovilView, AppleLoginMobile
 from base_toolbar.views import SomosCreateUpdateAPIView
 
 urlpatterns = [
@@ -34,6 +34,7 @@ urlpatterns = [
     path('api/app/delete-account/', DeleteMedicoAppMovilView.as_view(), name='delete-account'),
     path('api/app/register/', RegisterMedicoAppMovilView.as_view(), name='register-app'),
     path('api/app/login-google/', GoogleLoginMobile.as_view(), name='login-google-app'),
+    path('api/app/login-apple/', AppleLoginMobile.as_view(), name='login-apple-app'),
     path('api/app/confirm-pass-reset/', ConfirmPasswordResetView.as_view(), name='confirm-pass-reset'),
     path('api/app/pass-reset/', RequestPasswordResetView.as_view(), name='pass-reset'),
     path('api/app/update-password/', ChangePasswordView.as_view(), name='update-password'),

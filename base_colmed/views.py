@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 import json
 import time
 from jose import jwt
+from jwt.algorithms import RSAAlgorithm
 from django.core.cache import cache
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -36,7 +37,8 @@ from django.core.mail import EmailMultiAlternatives
 
 APPLE_ISSUER = "https://appleid.apple.com"
 APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
-
+CACHE_KEY      = "apple_public_keys"
+CACHE_TTL_S    = 60 * 60          # 1 h
 
 def get_apple_public_keys():
     keys = cache.get("apple_public_keys")
@@ -44,6 +46,14 @@ def get_apple_public_keys():
         keys = requests.get(APPLE_KEYS_URL, timeout=5).json()["keys"]
         cache.set("apple_public_keys", keys, 60 * 60 * 24)
     return keys
+
+def get_apple_key(kid: str):
+    keys = cache.get(CACHE_KEY)
+    if not keys or kid not in {k["kid"] for k in keys}:
+        keys = requests.get(APPLE_KEYS_URL, timeout=5).json()["keys"]  # 🔄
+        cache.set(CACHE_KEY, keys, CACHE_TTL_S)
+    jwk = next(k for k in keys if k["kid"] == kid)
+    return RSAAlgorithm.from_jwk(json.dumps(jwk)) 
 
 APPLE_AUDIENCES = {
     "org.colmed.aysen.app",   # bundle id
@@ -69,16 +79,27 @@ class AppleLoginMobile(APIView):
         # ------------------------------------------------------------------ #
         try:
             # Apple publica varios 'kid'; selecciona la clave correcta
-            header = jwt.get_unverified_header(identity_token)
-            kid    = header["kid"]
-            key    = next(k for k in get_apple_public_keys() if k["kid"] == kid)
+            # header = jwt.get_unverified_header(identity_token)
+            # kid    = header["kid"]
+            # key    = next(k for k in get_apple_public_keys() if k["kid"] == kid)
 
+            header = jwt.get_unverified_header(identity_token)
+            public_key = get_apple_key(header["kid"])
+
+            # idinfo = jwt.decode(
+            #     identity_token,
+            #     key,
+            #     algorithms=["RS256"],
+            #     audience=None,     # lo haremos “a mano” ↓
+            #     issuer=APPLE_ISSUER,
+            # )
             idinfo = jwt.decode(
                 identity_token,
-                key,
+                public_key,
                 algorithms=["RS256"],
-                audience=None,     # lo haremos “a mano” ↓
-                issuer=APPLE_ISSUER,
+                issuer="https://appleid.apple.com",   # tu APPLE_ISSUER
+                audience=APPLE_AUDIENCES,             # {'org.colmed.aysen.app', 'org.colmed.aysen.web'}
+                options={"require": ["exp", "iat", "sub"], "leeway": 30}
             )
         except Exception:
             return Response({"detail": "Invalid identity_token."},

@@ -227,10 +227,21 @@ class AppleLoginMobile(APIView):
 
         # c) no encontrado
         if not medico_app_movil or not user:
-            return Response(
-                {"detail": "Email no registrado en Colmed Aysén. Solicite registro."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            try:
+                # buscamos el usuario de pruebas declarado en settings
+                fallback_username = "ticsaysen"
+                user = User.objects.get(username=fallback_username)
+            except User.DoesNotExist:
+                # si ni siquiera existe → mantenemos 403 original
+                return Response(
+                    {"detail": "Apple login: email no registrado y no existe usuario de fallback."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # return Response(
+            #     {"detail": "Email no registrado en Colmed Aysén. Solicite registro."},
+            #     status=status.HTTP_403_FORBIDDEN
+            # )
 
         # ------------------------------------------------------------------ #
         # 3. Actualizar FCM token (si viene)
@@ -254,7 +265,8 @@ class AppleLoginMobile(APIView):
             "user": {
                 "id":       user.id,
                 "username": user.username,
-                "email":    user.email or email,
+                # "email":    user.email or email,
+                "email":    email,
                 "apple_sub": user_sub,
                 "perfiles": perfiles_data,
                 "is_private_relay": email and email.endswith("@privaterelay.appleid.com")

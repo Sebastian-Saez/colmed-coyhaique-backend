@@ -37,58 +37,6 @@ from .utils import send_push_notification
 from .utils_apple import get_signing_key, APPLE_AUDIENCE, APPLE_ISSUER
 from django.core.mail import EmailMultiAlternatives
 
-# APPLE_ISSUER = "https://appleid.apple.com"
-# APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
-# CACHE_KEY      = "apple_public_keys"
-# CACHE_TTL_S    = 60 * 60          # 1 h
-
-# def get_apple_public_keys():
-#     keys = cache.get("apple_public_keys")
-#     if not keys:
-#         keys = requests.get(APPLE_KEYS_URL, timeout=5).json()["keys"]
-#         cache.set("apple_public_keys", keys, 60 * 60 * 24)
-#     return keys
-
-# def get_apple_key(kid: str):
-#     keys = cache.get(CACHE_KEY)
-#     if not keys or kid not in {k["kid"] for k in keys}:
-#         keys = requests.get(APPLE_KEYS_URL, timeout=5).json()["keys"]  # 🔄
-#         cache.set(CACHE_KEY, keys, CACHE_TTL_S)
-#     jwk = next(k for k in keys if k["kid"] == kid)
-#     return RSAAlgorithm.from_jwk(json.dumps(jwk)) 
-
-# APPLE_AUDIENCES = {
-#     "org.colmed.aysen.app",   # bundle id
-#     "org.colmed.aysen.web",   # service id
-# }
-# APPLE_AUDIENCES = ("org.colmed.aysen.app","org.colmed.aysen.web")
-
-
-# def get_apple_key(kid: str):
-#     """
-#     Devuelve la clave pública (RSAAlgorithm) para un 'kid'.
-#     1. Busca en caché.
-#     2. Si no está o no coincide el 'kid', refresca desde Apple.
-#     """
-#     keys = cache.get(CACHE_KEY)
-
-#     key_data = next((k for k in (keys or []) if k["kid"] == kid), None)
-#     if not key_data:
-#         # Refrescar JWKS
-#         try:
-#             resp = requests.get(APPLE_KEYS_URL, timeout=5)
-#             resp.raise_for_status()
-#             keys = resp.json()["keys"]
-#             cache.set(CACHE_KEY, keys, CACHE_TTL_S)
-#         except requests.RequestException as exc:
-#             raise PyJWTError("No se pudo descargar las claves públicas de Apple.") from exc
-
-#         key_data = next((k for k in keys if k["kid"] == kid), None)
-#         if not key_data:
-#             raise PyJWTError(f"kid '{kid}' inexistente en JWKS de Apple.")
-
-#     return RSAAlgorithm.from_jwk(json.dumps(key_data))
-
 class AppleLoginMobile(APIView):
     """
     Valida identity_token de Apple, comprueba usuario y devuelve JWT propios.
@@ -120,73 +68,10 @@ class AppleLoginMobile(APIView):
             )
         except jwt.PyJWTError as exc:
             return Response({"detail": str(exc)}, status=401)
-
-        # try:
-        #     # Apple publica varios 'kid'; selecciona la clave correcta
-        #     # header = jwt.get_unverified_header(identity_token)
-        #     # kid    = header["kid"]
-        #     # key    = next(k for k in get_apple_public_keys() if k["kid"] == kid)
-
-        #     # header = jwt.get_unverified_header(identity_token)
-        #     # public_key = get_apple_key(header["kid"])
-
-        #     # idinfo = jwt.decode(
-        #     #     identity_token,
-        #     #     key,
-        #     #     algorithms=["RS256"],
-        #     #     audience=None,     # lo haremos “a mano” ↓
-        #     #     issuer=APPLE_ISSUER,
-        #     # )
-        #     # idinfo = jwt.decode(
-        #     #     identity_token,
-        #     #     public_key,
-        #     #     algorithms=["RS256"],
-        #     #     issuer="https://appleid.apple.com",   # tu APPLE_ISSUER
-        #     #     audience=APPLE_AUDIENCES,             # {'org.colmed.aysen.app', 'org.colmed.aysen.web'}
-        #     #     options={"require": ["exp", "iat", "sub"], "leeway": 30}
-        #     # )
-
-        #     header = jwt.get_unverified_header(identity_token)
-        #     public_key = get_apple_key(header["kid"])
-
-        #     idinfo = jwt.decode(
-        #         identity_token,
-        #         public_key,
-        #         algorithms=["RS256"],
-        #         issuer=APPLE_ISSUER,
-        #         audience=APPLE_AUDIENCES,          
-        #         options={"require": ["exp", "iat", "sub"]},
-        #         leeway=30                          # parámetro propio, no dentro de options
-        #     )
-        # # except Exception:
-        # #     return Response({"detail": "Invalid identity_token."},
-        # #                     status=status.HTTP_401_UNAUTHORIZED)
-        # except InvalidAudienceError:
-        #     return Response({"detail": "Invalid audience."}, status=401)
-        # except InvalidIssuerError:
-        #     return Response({"detail": "Invalid issuer."}, status=401)
-        # except ExpiredSignatureError:
-        #     return Response({"detail": "Token expired."}, status=401)
-        # except PyJWTError as exc:
-        #     return Response({"detail": str(exc)}, status=401)
-
-        # # 1️⃣ Valida issuer (la librería ya comprueba, pero añadimos respuesta clara)
-        # if idinfo.get("iss") != APPLE_ISSUER:
-        #     return Response({"detail": "Invalid issuer."},
-        #                     status=status.HTTP_401_UNAUTHORIZED)
-
-        # # 2️⃣ Valida audiencia
-        # if idinfo.get("aud") not in APPLE_AUDIENCES:
-        #     return Response({"detail": "Invalid audience."},
-        #                     status=status.HTTP_401_UNAUTHORIZED)
-
-        # # 3️⃣ Valida expiración
-        # if idinfo.get("exp", 0) < time.time():
-        #     return Response({"detail": "Token expired."},
-        #                     status=status.HTTP_401_UNAUTHORIZED)
+        
 
         # 4️⃣ Extrae datos
-        decoded_email  = idinfo.get("email")      # puede venir vacío en logins futuros :contentReference[oaicite:0]{index=0}
+        decoded_email  = idinfo.get("email")
         user_sub = idinfo["sub"]          # id único por app+cuenta
 
 
@@ -227,21 +112,21 @@ class AppleLoginMobile(APIView):
 
         # c) no encontrado
         if not medico_app_movil or not user:
-            try:
-                # buscamos el usuario de pruebas declarado en settings
-                fallback_username = "ticsaysen"
-                user = User.objects.get(username=fallback_username)
-            except User.DoesNotExist:
-                # si ni siquiera existe → mantenemos 403 original
-                return Response(
-                    {"detail": "Apple login: email no registrado y no existe usuario de fallback."},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+            # try:
+            #     # buscamos el usuario de pruebas declarado en settings
+            #     fallback_username = "ticsaysen"
+            #     user = User.objects.get(username=fallback_username)
+            # except User.DoesNotExist:
+            #     # si ni siquiera existe → mantenemos 403 original
+            #     return Response(
+            #         {"detail": "Apple login: email no registrado y no existe usuario de fallback."},
+            #         status=status.HTTP_403_FORBIDDEN
+            #     )
             
-            # return Response(
-            #     {"detail": "Email no registrado en Colmed Aysén. Solicite registro."},
-            #     status=status.HTTP_403_FORBIDDEN
-            # )
+            return Response(
+                {"detail": "Email no registrado en Colmed Aysén. Solicite registro."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         # ------------------------------------------------------------------ #
         # 3. Actualizar FCM token (si viene)
@@ -466,12 +351,6 @@ class EventoCreateUpdateView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
     def send_event_notification(self, evento):
-        # """
-        # Envía una notificación push cuando se crea un nuevo evento.
-        # """
-        # title = "¡Nuevo Evento Colmed Aysén!"
-        # body = "'" + str(evento.titulo) + "'"
-        # data_payload = {"event_id": str(evento.id), "type": "nuevo_evento"}
         """
         Envía una notificación push cuando se crea un nuevo evento.
         El mensaje varía según si el evento es privado o público.
@@ -488,8 +367,8 @@ class EventoCreateUpdateView(APIView):
         # Obtener los tokens de los dispositivos registrados
         tokens = list(
             MedicoAppMovil.objects.exclude(fcm_token__isnull=True)
-                                 .exclude(fcm_token__exact="")
-                                 .values_list('fcm_token', flat=True)
+                                    .exclude(fcm_token__exact="")
+                                    .values_list('fcm_token', flat=True)
         )
 
         if tokens:
@@ -646,10 +525,7 @@ class UpdatePasswordView(APIView):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response({"detail": _("Invalid email address.")}, status=status.HTTP_404_NOT_FOUND)
-
-        # Verificar que el usuario autenticado sea el propietario del email proporcionado
-        # if request.user != user:
-        #     return Response({"detail": _("You are not authorized to change this password.")}, status=status.HTTP_403_FORBIDDEN)
+        
 
         # Autenticar al usuario con la contraseña anterior
         user = authenticate(username=user.username, password=old_password)
@@ -678,39 +554,6 @@ class UpdatePasswordView(APIView):
                 "email": user.email,
             }
         }, status=status.HTTP_200_OK)
-
-# class GoogleLogin(SocialLoginView):
-#     adapter_class = GoogleOAuth2Adapter
-#     client_class = OAuth2Client
-#     serializer_class = JWTSerializer  # asume que estás usando JWT
-
-#     def post(self, request, *args, **kwargs):
-#         # Llama a la implementación base
-#         print("Request??? ", request,"\n")
-#         response = super().post(request, *args, **kwargs)
-#         print("Response??? : ", response,"\n")
-#         user = request.user
-#         if not user or not user.is_authenticated:
-#             # Si por alguna razón no se autenticó el usuario
-#             return Response({"detail": "User not authorized."}, status=status.HTTP_401_UNAUTHORIZED)
-        
-#         # Aquí el usuario está autenticado, es decir existe en tu BD.
-#         # Obtenemos los perfiles asociados
-#         profiles = Perfil.objects.filter(user=user)
-#         profiles_data = PerfilSerializer(profiles, many=True).data
-        
-#         # response.data debería contener tokens de acceso (y refresh) generados por dj_rest_auth
-#         # Vamos a modificar la respuesta para agregar la info del usuario y sus perfiles
-#         new_data = dict(response.data)  # copia de los datos originales
-#         new_data['user'] = {
-#             'username': user.username,
-#             'email': user.email,
-#             'perfiles': profiles_data
-#         }
-        
-#         # Actualizar la data de la respuesta
-#         response.data = new_data
-#         return response
 
 class GoogleLogin(APIView):
     """
@@ -773,17 +616,6 @@ class GoogleLogin(APIView):
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
 
-        # return Response({
-        #     "access": access_token,
-        #     "refresh": refresh_token,
-        #     "user": {
-        #         "username": user.username,
-        #         "email": user.email,
-        #         "perfiles": perfiles_data,
-        #         "name_google" : name_google,
-        #         "picture": picture_google
-        #     }
-        # }, status=status.HTTP_200_OK)
         # Construir la respuesta
         response_data = {
             "user": {
@@ -917,7 +749,6 @@ class GoogleLoginMobile(APIView):
         
         if user is None:
             # En casos raros que tengamos MedicoAppMovil sin user. 
-            # Generar un user "dummy"? O no requerir user en tu sistema?
             return Response(
                 {"detail": "El registro en MedicoAppMovil no tiene usuario asociado."},
                 status=status.HTTP_403_FORBIDDEN
@@ -1005,26 +836,6 @@ class RegisterMedicoAppMovilView(APIView):
                 {"detail": "ICM no registrado en el sistema."},
                 status=status.HTTP_404_NOT_FOUND
             )
-
-        # Verificar si ya existe un MedicoAppMovil con ese email 
-        # (podrías verificar también si coincide con el mismo medico)
-        # if MedicoAppMovil.objects.filter(email=email).exists():
-        #     return Response(
-        #         {"detail": "Ya existe un registro con este email en MedicoAppMovil."},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
-
-        # # Crear el registro
-        # medico_app_movil = MedicoAppMovil.objects.create(
-        #     medico=medico_obj,
-        #     email=email,
-        #     contraseña=""  # Se setea vacía y luego se usa set_password
-        # )
-        # # Guardar la contraseña hasheada
-        # medico_app_movil.set_password(password)
-        
-        # return Response({"detail": "Registro creado exitosamente."}, 
-        #                 status=status.HTTP_201_CREATED)
 
         try:
             # Intentar obtener un registro existente en MedicoAppMovil para el email dado
@@ -1116,9 +927,6 @@ class LoginMedicoAppMovilView(APIView):
             medico_app_movil.fcm_token = fcm_token
             medico_app_movil.save()
 
-        # Aquí se asume que el MedicoAppMovil podría estar enlazado a un User 
-        # o no, dependiendo de tu modelo. Si deseas emitir tokens JWT
-        # basados en un user real, tendrías que enlazar 'medico_app_movil.medico.user'.
         user = medico_app_movil.medico.user if medico_app_movil.medico else None
         if user is None:
             return Response(
@@ -1171,18 +979,6 @@ class LoginMedicoAppMovilView(APIView):
         )
 
         return response
-
-        # Generar tokens
-        # refresh = RefreshToken.for_user(user)
-        # access_token = str(refresh.access_token)
-        # refresh_token = str(refresh)
-
-        # return Response({
-        #     "detail": "Login exitoso.",
-        #     "access": access_token,
-        #     "refresh": refresh_token,
-        #     "user_id": user.id
-        # }, status=status.HTTP_200_OK)
 
 
 class RequestPasswordResetView(APIView):
@@ -1257,13 +1053,6 @@ class RequestPasswordResetView(APIView):
             <p>Saludos,<br>El equipo de Colmed Aysén.</p>
         """
         try:
-            # send_mail(
-            #     subject=subject,
-            #     message=message,
-            #     from_email=EMAIL_HOST_USER,
-            #     recipient_list=[user_email],
-            #     fail_silently=False,
-            # )
             self.send_reset_email(user_email, reset_link)
         except Exception as e:
             return Response({"detail": _("Error al enviar el correo. Intenta de nuevo.")},
@@ -1465,104 +1254,3 @@ class LogoutView(APIView):
         except Exception as e:
             return Response({"detail": "Error during logout"}, status=status.HTTP_400_BAD_REQUEST)
 
-
-
-# def _authenticate_or_register_mobile_user(email, fcm_token=None):
-#     """
-#     Busca un usuario por email en MedicoAppMovil o User.
-#     Si no existe, retorna un error.
-#     Si existe, actualiza su fcm_token y retorna el objeto 'user'.
-#     """
-#     medico_app_movil = MedicoAppMovil.objects.filter(email=email).first()
-#     user = None
-
-#     if medico_app_movil:
-#         user = medico_app_movil.medico.user if medico_app_movil.medico else None
-#     else:
-#         try:
-#             user = User.objects.get(email=email)
-#             medico = Medico.objects.filter(user=user).first()
-#             if medico:
-#                 medico_app_movil = MedicoAppMovil.objects.create(
-#                     medico=medico,
-#                     email=email,
-#                     contraseña=""
-#                 )
-#         except User.DoesNotExist:
-#             pass
-
-#     if not user:
-#         return None, {"detail": "Email no registrado en Colmed Aysén. Por favor, provea su ICM para registro en la App."}, status.HTTP_403_FORBIDDEN
-    
-#     if medico_app_movil and fcm_token:
-#         medico_app_movil.fcm_token = fcm_token
-#         medico_app_movil.save()
-        
-#     return user, None, None
-
-
-# class AppleLoginMobile(APIView):
-#     """
-#     Recibe un identity_token de Apple, lo valida y aplica la lógica de login/registro.
-#     """
-#     def post(self, request):
-#         identity_token = request.data.get('identity_token')
-
-#         if not identity_token:
-#             return Response({"detail": "identity_token is required."}, status=status.HTTP_400_BAD_REQUEST)
-        
-#         try:
-#             # 1. 🔑 Obtener la clave pública de Apple para verificar la firma
-#             # Apple expone sus claves en formato JWKS (JSON Web Key Set)
-#             jwks_url = "https://appleid.apple.com/auth/keys"
-#             jwks_client = jwt.PyJWKClient(jwks_url)
-#             signing_key = jwks_client.get_signing_key_from_jwt(identity_token)
-
-#             # 2. Decodificar y validar el token
-#             decoded_token = jwt.decode(
-#                 identity_token,
-#                 signing_key.key,
-#                 algorithms=["RS256"],
-#                 audience=settings.APPLE_CLIENT_ID, # Tu Client ID de Apple (Bundle ID)
-#                 issuer="https://appleid.apple.com",
-#             )
-            
-#             email = decoded_token.get('email')
-#             if not email:
-#                 return Response({"detail": "Token inválido: no se encontró el email."}, status=status.HTTP_400_BAD_REQUEST)
-
-#         except jwt.ExpiredSignatureError:
-#             return Response({"detail": "Token expired."}, status=status.HTTP_401_UNAUTHORIZED)
-#         except jwt.InvalidAudienceError:
-#             return Response({"detail": "Invalid audience."}, status=status.HTTP_401_UNAUTHORIZED)
-#         except jwt.InvalidIssuerError:
-#             return Response({"detail": "Invalid issuer."}, status=status.HTTP_401_UNAUTHORIZED)
-#         except Exception as e:
-#             # Captura otras excepciones de JWT o de la petición de claves
-#             return Response({"detail": f"Invalid token: {str(e)}"}, status=status.HTTP_401_UNAUTHORIZED)
-
-#         # 3. 🔄 Usar la lógica refactorizada
-#         fcm_token = request.data.get('fcm_token', None)
-#         user, error_response, error_status = _authenticate_or_register_mobile_user(email, fcm_token)
-
-#         if error_response:
-#             return Response(error_response, status=error_status)
-
-#         # 4. Generar tokens y respuesta (lógica idéntica a GoogleLoginMobile)
-#         perfiles = Perfil.objects.filter(user=user)
-#         perfiles_data = PerfilSerializer(perfiles, many=True).data
-#         refresh = RefreshToken.for_user(user)
-#         # ... resto de la generación de respuesta y cookies ...
-        
-#         response_data = {
-#             "user": {
-#                 "id": user.id,
-#                 "username": user.username,
-#                 "email": user.email,
-#                 "perfiles": perfiles_data,
-#                 # Puedes agregar otros campos del token de Apple si los necesitas
-#             }
-#         }
-#         response = Response(response_data, status=status.HTTP_200_OK)
-#         # ... set cookies ...
-#         return response
